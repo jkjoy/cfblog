@@ -94,7 +94,18 @@ npm install
 
 ### 配置
 
-1. **配置 Wrangler**
+1. **创建 Cloudflare 资源**
+
+```bash
+# 创建 D1 数据库
+wrangler d1 create cfblog-db
+
+# 创建 R2 存储桶
+wrangler r2 bucket create cfblog-media
+```
+
+
+2. **配置 Wrangler**
 
 编辑 `wrangler.toml` 文件：
 
@@ -120,15 +131,6 @@ binding = "AI"
 JWT_SECRET = "your-jwt-secret-here"    # 替换为安全的密钥
 ```
 
-2. **创建 Cloudflare 资源**
-
-```bash
-# 创建 D1 数据库
-wrangler d1 create cfblog-db
-
-# 创建 R2 存储桶
-wrangler r2 bucket create cfblog-media
-```
 
 3. **初始化数据库**
 
@@ -142,15 +144,14 @@ wrangler d1 execute cfblog-db --file=./schema.sql --remote
 npm run db:init
 ``` 
 
-**重要说明：**
-- `schema.sql` 已经包含了所有表结构、索引和默认数据
-
-- 包含的内容：
-  - 所有基础表（users, posts, categories, tags, comments, media, links 等）
-  - site_settings 表（系统设置）
-  - featured_media_id 和 featured_image_url 字段
-  - 所有索引
-  - 默认数据（分类、链接分类、系统设置）
+4. **部署到Cloudflare Workers**
+```bash
+wrangler deploy
+```
+或者使用 
+```bash
+npm run deploy
+```
 
 ### 开发
 
