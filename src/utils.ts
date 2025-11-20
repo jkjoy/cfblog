@@ -691,6 +691,33 @@ export async function sendWebhook(env: Env, event: WebhookEvent, data: any): Pro
   }
 }
 
+// Check if text contains Chinese characters
+export function containsChinese(text: string): boolean {
+  return /[\u4e00-\u9fa5]/.test(text);
+}
+
+// Smart tag slug generation - use English directly, AI for Chinese
+export async function generateSmartTagSlug(env: Env, name: string, providedSlug?: string): Promise<string> {
+  // If slug is explicitly provided and not empty, use it
+  if (providedSlug && providedSlug.trim()) {
+    return providedSlug.trim();
+  }
+
+  // If name is empty, return empty
+  if (!name || !name.trim()) {
+    return '';
+  }
+
+  // Check if name contains Chinese characters
+  if (containsChinese(name)) {
+    // Use AI to generate slug for Chinese names
+    return await generateSlugWithAI(env, name);
+  } else {
+    // For English names, use the simple slug generator
+    return generateSlug(name);
+  }
+}
+
 // AI-powered slug generation
 export async function generateSlugWithAI(env: Env, title: string): Promise<string> {
   try {

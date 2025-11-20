@@ -1405,7 +1405,7 @@ app.get('/wp-admin', (c) => {
               </select>
             </div>
             <div class="form-group">
-              <label>发布日期 <small style="color: #646970;">(留空使用当前时间)</small></label>
+              <label>Date posted <small style="color: #646970;">(留空使用当前时间)</small></label>
               <input type="datetime-local" name="date" placeholder="自动使用当前时间">
               <small style="color: #646970; display: block; margin-top: 5px;">可以自定义文章发布日期</small>
             </div>
@@ -1431,8 +1431,8 @@ app.get('/wp-admin', (c) => {
                 \`).join('')}
               </div>
               <div style="margin-top: 10px; display: flex; gap: 5px;">
-                <input type="text" id="new-tag-name" placeholder="创建新标签" style="flex: 1; padding: 5px;">
-                <button type="button" class="button button-secondary" onclick="createAndAddTag('create')">添加新标签</button>
+                <input type="text" id="new-tag-name" placeholder="Create new tag" style="flex: 1; padding: 5px;">
+                <button type="button" class="button button-secondary" onclick="createAndAddTag('create')">Add New Tag</button>
               </div>
             </div>
             <button type="submit" class="button" style="width: 100%;">Create Post</button>

@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { Env, Tag, JWTPayload } from '../types';
-import { formatTagResponse, generateSlug, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
+import { formatTagResponse, generateSlug, generateSmartTagSlug, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../auth';
 
 const tags = new Hono<{ Bindings: Env }>();
@@ -153,16 +153,17 @@ tags.post('/', authMiddleware, requireRole('administrator', 'editor', 'author'),
       return createWPError('rest_invalid_param', 'Name is required.', 400);
     }
 
-    // Generate slug
-    let tagSlug = slug || generateSlug(name);
+    // Generate slug intelligently - use English directly, AI for Chinese
+    let tagSlug = await generateSmartTagSlug(c.env, name, slug);
 
     // Ensure slug is unique
     let slugExists = await c.env.DB.prepare('SELECT id FROM tags WHERE slug = ?')
       .bind(tagSlug)
       .first();
     let counter = 1;
+    const baseSlug = tagSlug;
     while (slugExists) {
-      tagSlug = `${slug || generateSlug(name)}-${counter}`;
+      tagSlug = `${baseSlug}-${counter}`;
       slugExists = await c.env.DB.prepare('SELECT id FROM tags WHERE slug = ?')
         .bind(tagSlug)
         .first();
@@ -225,9 +226,33 @@ tags.put('/:id', authMiddleware, requireRole('administrator', 'editor'), async (
       params.push(description);
     }
 
+    // Handle slug - generate with AI if empty or not provided but name changed
     if (slug !== undefined) {
+      let newSlug: string;
+      if (slug && slug.trim()) {
+        // Use provided slug
+        newSlug = slug.trim();
+      } else {
+        // Slug is empty, generate intelligently
+        const nameForSlug = name !== undefined ? name : existingTag.name;
+        newSlug = await generateSmartTagSlug(c.env, nameForSlug, '');
+
+        // Ensure slug is unique
+        let slugExists = await c.env.DB.prepare('SELECT id FROM tags WHERE slug = ? AND id != ?')
+          .bind(newSlug, id)
+          .first();
+        let counter = 1;
+        const baseSlug = newSlug;
+        while (slugExists) {
+          newSlug = `${baseSlug}-${counter}`;
+          slugExists = await c.env.DB.prepare('SELECT id FROM tags WHERE slug = ? AND id != ?')
+            .bind(newSlug, id)
+            .first();
+          counter++;
+        }
+      }
       updates.push('slug = ?');
-      params.push(slug);
+      params.push(newSlug);
     }
 
     // If no fields to update, return current tag
