@@ -1262,6 +1262,10 @@ app.get('/wp-admin', (c) => {
             <h3>Users</h3>
             <div class="number" id="users-count">-</div>
           </div>
+          <div class="stat-card">
+            <h3>Moments</h3>
+            <div class="number" id="moments-count">-</div>
+          </div>
         </div>
       \`;
 
@@ -1271,7 +1275,7 @@ app.get('/wp-admin', (c) => {
 
     async function loadStats() {
       try {
-        const [posts, pages, comments, categories, tags, media, links, users] = await Promise.all([
+        const [posts, pages, comments, categories, tags, media, links, users, moments] = await Promise.all([
           fetch(API_BASE + '/posts?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
           fetch(API_BASE + '/pages?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
           fetch(API_BASE + '/comments?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
@@ -1279,7 +1283,8 @@ app.get('/wp-admin', (c) => {
           fetch(API_BASE + '/tags?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
           fetch(API_BASE + '/media?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
           fetch(API_BASE + '/links?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
-          fetch(API_BASE + '/users?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } })
+          fetch(API_BASE + '/users?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
+          fetch(API_BASE + '/moments?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } })
         ]);
 
         document.getElementById('posts-count').textContent = posts.headers.get('X-WP-Total') || '0';
@@ -1290,6 +1295,7 @@ app.get('/wp-admin', (c) => {
         document.getElementById('media-count').textContent = media.headers.get('X-WP-Total') || '0';
         document.getElementById('links-count').textContent = links.headers.get('X-WP-Total') || '0';
         document.getElementById('users-count').textContent = users.headers.get('X-WP-Total') || '0';
+        document.getElementById('moments-count').textContent = moments.headers.get('X-WP-Total') || '0';
       } catch (error) {
         console.error('Failed to load stats:', error);
       }

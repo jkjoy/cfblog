@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { Env, Category, JWTPayload } from '../types';
-import { formatCategoryResponse, generateSlug, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
+import { formatCategoryResponse, generateSlug, generateSmartTagSlug, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../auth';
 
 const categories = new Hono<{ Bindings: Env }>();
@@ -157,16 +157,17 @@ categories.post('/', authMiddleware, requireRole('administrator', 'editor'), asy
       return createWPError('rest_invalid_param', 'Name is required.', 400);
     }
 
-    // Generate slug
-    let categorySlug = slug || generateSlug(name);
+    // Generate slug intelligently - use English directly, AI for Chinese
+    let categorySlug = await generateSmartTagSlug(c.env, name, slug);
 
     // Ensure slug is unique
     let slugExists = await c.env.DB.prepare('SELECT id FROM categories WHERE slug = ?')
       .bind(categorySlug)
       .first();
     let counter = 1;
+    const baseSlug = categorySlug;
     while (slugExists) {
-      categorySlug = `${slug || generateSlug(name)}-${counter}`;
+      categorySlug = `${baseSlug}-${counter}`;
       slugExists = await c.env.DB.prepare('SELECT id FROM categories WHERE slug = ?')
         .bind(categorySlug)
         .first();
@@ -229,9 +230,33 @@ categories.put('/:id', authMiddleware, requireRole('administrator', 'editor'), a
       params.push(description);
     }
 
+    // Handle slug - generate with AI if empty or not provided but name changed
     if (slug !== undefined) {
+      let newSlug: string;
+      if (slug && slug.trim()) {
+        // Use provided slug
+        newSlug = slug.trim();
+      } else {
+        // Slug is empty, generate intelligently
+        const nameForSlug = name !== undefined ? name : existingCategory.name;
+        newSlug = await generateSmartTagSlug(c.env, nameForSlug, '');
+
+        // Ensure slug is unique
+        let slugExists = await c.env.DB.prepare('SELECT id FROM categories WHERE slug = ? AND id != ?')
+          .bind(newSlug, id)
+          .first();
+        let counter = 1;
+        const baseSlug = newSlug;
+        while (slugExists) {
+          newSlug = `${baseSlug}-${counter}`;
+          slugExists = await c.env.DB.prepare('SELECT id FROM categories WHERE slug = ? AND id != ?')
+            .bind(newSlug, id)
+            .first();
+          counter++;
+        }
+      }
       updates.push('slug = ?');
-      params.push(slug);
+      params.push(newSlug);
     }
 
     if (parent !== undefined) {

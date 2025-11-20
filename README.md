@@ -9,6 +9,7 @@ CFBlog 是一个类似 WordPress 的无头博客系统，使用 Cloudflare 生�
 - Hono - 快速轻量的 Web 框架
 - D1 - Cloudflare 的 SQLite 数据库
 - R2 - Cloudflare 对象存储
+- AI - Cloudflare 人工智能服务
 - TypeScript - 类型安全的开发体验
 - bcryptjs - 密码加密
 - jose - JWT 认证
@@ -27,7 +28,8 @@ CFBlog 是一个类似 WordPress 的无头博客系统，使用 Cloudflare 生�
 - ✅ 浏览计数
 - ✅ 使用Cloudflare AI自动生成文章的slug
 - ✅ 使用Cloudflare AI自动生成文章的摘要
-- 
+- ✅ 使用Cloudflare AI自动生成分类和标签的slug
+
 ### 媒体管理
 - ✅ 图片上传到 R2 存储
 - ✅ 媒体库管理
@@ -35,9 +37,9 @@ CFBlog 是一个类似 WordPress 的无头博客系统，使用 Cloudflare 生�
 - ✅ 支持多种文件格式
 
 ### 用户系统
-- ✅ 用户注册和登录
+- ✅ 用户注册和登录 第一个注册的用户为管理员 之后不再显示注册
 - ✅ JWT 认证
-- ✅ 角色权限系统（管理员、编辑、作者、投稿者、订阅者）
+- ✅ 角色权限系统（管理员、编辑、作者、投稿者、订阅者）通过后台添加用户或者通过API创建用户
 - ✅ 用户资料管理
 - ✅ 头像和个人简介
 
@@ -52,7 +54,7 @@ CFBlog 是一个类似 WordPress 的无头博客系统，使用 Cloudflare 生�
 - ✅ SEO 配置
 - ✅ 自定义页脚文本
 - ✅ ICP 备案信息
-- ✅ webhook url 填写Vercel 或者 Cloudflare Pages的部署钩子,选择触发的事件,会在事件发生时触发部署任务
+- ✅ webhook url 填写Cloudflare Pages的部署钩子,选择触发的事件,会在事件发生时触发部署任务
 
   
 ## 项目结构
@@ -130,16 +132,19 @@ wrangler r2 bucket create cfblog-media
 
 3. **初始化数据库**
 
-使用整合后的 schema.sql 初始化数据库：
-
 ```bash
 wrangler d1 execute cfblog-db --file=./schema.sql --remote
 ```
 
+或者 
+
+```bash
+npm run db:init
+``` 
+
 **重要说明：**
 - `schema.sql` 已经包含了所有表结构、索引和默认数据
-- 之前的迁移文件（migrations/ 目录）已整合到 schema.sql 中
-- 对于新数据库，只需运行一次 schema.sql 即可
+
 - 包含的内容：
   - 所有基础表（users, posts, categories, tags, comments, media, links 等）
   - site_settings 表（系统设置）
@@ -150,9 +155,11 @@ wrangler d1 execute cfblog-db --file=./schema.sql --remote
 ### 开发
 
 **启动后端开发服务器**
+
 ```bash
 npm run dev
 ```
+
 后端 API 将运行在 http://127.0.0.1:8787
 
 ## API 文档
@@ -209,6 +216,7 @@ npm run dev
 ## 前端项目
 
 ###  AKINA主题：
+
 使用vue3 + vite + pinia + vue-router + markdown-it + highlight.js等技术栈构建的现代化前端界面。
 
 项目地址 https://github.com/jkjoy/cfblog-theme-akina
