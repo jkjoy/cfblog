@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { Env, User, JWTPayload } from '../types';
 import { formatUserResponse, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
-import { authMiddleware, requireRole, generateToken, hashPassword, comparePassword } from '../auth';
+import { authMiddleware, optionalAuthMiddleware, requireRole, generateToken, hashPassword, comparePassword } from '../auth';
 
 const users = new Hono<{ Bindings: Env }>();
 
@@ -160,7 +160,7 @@ users.get('/me', authMiddleware, async (c) => {
 });
 
 // GET /wp/v2/users - List users
-users.get('/', async (c) => {
+users.get('/', optionalAuthMiddleware, async (c) => {
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
@@ -244,7 +244,7 @@ users.get('/', async (c) => {
 });
 
 // GET /wp/v2/users/:id - Get single user
-users.get('/:id', async (c) => {
+users.get('/:id', optionalAuthMiddleware, async (c) => {
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
@@ -380,6 +380,21 @@ users.put('/:id', authMiddleware, async (c) => {
         'Sorry, you are not allowed to edit roles.',
         403
       );
+    }
+
+    // Check if email is being changed and if it's already in use
+    if (email !== undefined && email !== existingUser.email) {
+      const emailExists = await c.env.DB.prepare('SELECT id FROM users WHERE email = ? AND id != ?')
+        .bind(email, id)
+        .first();
+
+      if (emailExists) {
+        return createWPError(
+          'existing_user_email',
+          'Sorry, that email address is already used!',
+          400
+        );
+      }
     }
 
     // Build update query dynamically to avoid undefined values

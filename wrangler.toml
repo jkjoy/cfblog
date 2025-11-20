@@ -2,11 +2,15 @@ name = "cfblog"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
+# Local development settings
+# Note: AI binding will still connect to remote even in local mode
+# This is expected behavior and will incur usage charges
+
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
-database_name = "blog-db"
-database_id = "fe0d4cc1-f071-4531-8ceb-c76605605518"
+database_name = "cfblog-db"
+database_id = "22b5f9d0-291f-4f00-b785-d5fbb1075278"
 
 # R2 Storage binding
 [[r2_buckets]]
@@ -14,6 +18,7 @@ binding = "MEDIA"
 bucket_name = "cfblog-media"
 
 # Workers AI binding
+# Note: In local dev mode, AI still connects to remote Cloudflare AI
 [ai]
 binding = "AI"
 

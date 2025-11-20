@@ -271,7 +271,7 @@ posts.post('/', authMiddleware, async (c) => {
     const user = c.get('user') as JWTPayload;
     const body = await c.req.json();
 
-    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url } = body;
+    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url, date } = body;
 
     if (!title) {
       return createWPError('rest_invalid_param', 'Title is required.', 400);
@@ -317,7 +317,9 @@ posts.post('/', authMiddleware, async (c) => {
     }
 
     const now = new Date().toISOString();
-    const publishedAt = postStatus === 'publish' ? now : null;
+    // Use custom date if provided, otherwise use current time
+    const customDate = date ? new Date(date).toISOString() : now;
+    const publishedAt = postStatus === 'publish' ? customDate : null;
 
     // Insert post
     const result = await c.env.DB.prepare(
@@ -423,7 +425,7 @@ posts.put('/:id', authMiddleware, async (c) => {
     }
 
     const body = await c.req.json();
-    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url } = body;
+    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url, date } = body;
 
     // Check publish permission
     if (status === 'publish' && existingPost.status !== 'publish' && !canPublishPost(user)) {
@@ -435,8 +437,17 @@ posts.put('/:id', authMiddleware, async (c) => {
     }
 
     const now = new Date().toISOString();
-    const publishedAt =
-      status === 'publish' && !existingPost.published_at ? now : existingPost.published_at;
+    // Use custom date if provided, otherwise use existing or current time
+    let publishedAt = existingPost.published_at;
+    if (status === 'publish') {
+      if (date) {
+        // If custom date is provided, use it
+        publishedAt = new Date(date).toISOString();
+      } else if (!existingPost.published_at) {
+        // If no custom date and post wasn't published before, use current time
+        publishedAt = now;
+      }
+    }
 
     // Build update query dynamically to avoid undefined values
     const updates: string[] = ['updated_at = ?'];
@@ -452,30 +463,64 @@ posts.put('/:id', authMiddleware, async (c) => {
       params.push(content);
     }
 
+    // Handle excerpt - generate with AI if empty or not provided
+    let shouldGenerateExcerpt = false;
+    let excerptValue = excerpt;
+
     if (excerpt !== undefined) {
-      updates.push('excerpt = ?');
-      params.push(excerpt);
-    } else if (excerpt === undefined && content !== undefined && title !== undefined) {
-      // Auto-generate excerpt using AI if content changed but excerpt not provided
-      const newExcerpt = await generateExcerptWithAI(c.env, title, content);
-      updates.push('excerpt = ?');
-      params.push(newExcerpt);
-    } else if (excerpt === undefined && content !== undefined) {
-      // Use existing title if title not provided
-      const newExcerpt = await generateExcerptWithAI(c.env, existingPost.title, content);
-      updates.push('excerpt = ?');
-      params.push(newExcerpt);
+      // If excerpt is explicitly provided
+      if (!excerpt || excerpt.trim() === '') {
+        // Excerpt is empty, generate with AI
+        shouldGenerateExcerpt = true;
+      } else {
+        // Use provided excerpt
+        excerptValue = excerpt;
+      }
+    } else if (content !== undefined) {
+      // Excerpt not provided but content changed, check if existing excerpt is empty
+      if (!existingPost.excerpt || existingPost.excerpt.trim() === '') {
+        shouldGenerateExcerpt = true;
+      }
     }
 
+    if (shouldGenerateExcerpt) {
+      const titleForExcerpt = title !== undefined ? title : existingPost.title;
+      const contentForExcerpt = content !== undefined ? content : existingPost.content;
+      excerptValue = await generateExcerptWithAI(c.env, titleForExcerpt, contentForExcerpt);
+    }
+
+    if (excerptValue !== undefined && excerptValue !== excerpt) {
+      updates.push('excerpt = ?');
+      params.push(excerptValue);
+    } else if (excerpt !== undefined) {
+      updates.push('excerpt = ?');
+      params.push(excerpt);
+    }
+
+    // Handle slug - generate with AI if empty or not provided
     if (slug !== undefined) {
-      // If slug is provided and not empty, use it; otherwise generate from title using AI
       let newSlug: string;
       if (slug && slug.trim()) {
+        // Use provided slug
         newSlug = slug.trim();
-      } else if (title) {
-        newSlug = await generateSlugWithAI(c.env, title);
       } else {
-        newSlug = existingPost.slug;
+        // Slug is empty, generate with AI
+        const titleForSlug = title !== undefined ? title : existingPost.title;
+        newSlug = await generateSlugWithAI(c.env, titleForSlug);
+
+        // Ensure slug is unique
+        let slugExists = await c.env.DB.prepare('SELECT id FROM posts WHERE slug = ? AND id != ?')
+          .bind(newSlug, id)
+          .first();
+        let counter = 1;
+        const baseSlug = newSlug;
+        while (slugExists) {
+          newSlug = `${baseSlug}-${counter}`;
+          slugExists = await c.env.DB.prepare('SELECT id FROM posts WHERE slug = ? AND id != ?')
+            .bind(newSlug, id)
+            .first();
+          counter++;
+        }
       }
       updates.push('slug = ?');
       params.push(newSlug);

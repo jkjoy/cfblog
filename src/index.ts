@@ -895,15 +895,141 @@ app.get('/wp-admin', (c) => {
       padding: 40px;
       color: #646970;
     }
+
+    /* Toast Notification Styles */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      min-width: 300px;
+      max-width: 500px;
+      padding: 16px 20px;
+      background: #fff;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease-out;
+      border-left: 4px solid #0073aa;
+    }
+    .toast.success {
+      border-left-color: #00a32a;
+    }
+    .toast.error {
+      border-left-color: #d63638;
+    }
+    .toast.warning {
+      border-left-color: #dba617;
+    }
+    .toast-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .toast.success .toast-icon {
+      color: #00a32a;
+    }
+    .toast.error .toast-icon {
+      color: #d63638;
+    }
+    .toast.warning .toast-icon {
+      color: #dba617;
+    }
+    .toast-message {
+      flex: 1;
+      color: #2c3338;
+    }
+    .toast-close {
+      cursor: pointer;
+      color: #646970;
+      font-size: 18px;
+      flex-shrink: 0;
+      padding: 0 4px;
+    }
+    .toast-close:hover {
+      color: #2c3338;
+    }
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+    .toast.removing {
+      animation: slideOut 0.3s ease-out forwards;
+    }
   </style>
 </head>
 <body>
   <div id="app"></div>
+  <div class="toast-container" id="toast-container"></div>
 
   <script>
     const API_BASE = '/wp-json/wp/v2';
     let currentUser = null;
     let authToken = localStorage.getItem('auth_token');
+
+    // Toast notification system
+    function showToast(message, type = 'info', duration = 3000) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = \`toast \${type}\`;
+
+      const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ'
+      };
+
+      toast.innerHTML = \`
+        <span class="toast-icon">\${icons[type] || icons.info}</span>
+        <span class="toast-message">\${message}</span>
+        <span class="toast-close" onclick="this.parentElement.remove()">×</span>
+      \`;
+
+      container.appendChild(toast);
+
+      // Auto remove after duration
+      if (duration > 0) {
+        setTimeout(() => {
+          toast.classList.add('removing');
+          setTimeout(() => {
+            if (toast.parentElement) {
+              toast.remove();
+            }
+          }, 300);
+        }, duration);
+      }
+    }
+
+    // Convenience methods
+    window.showSuccess = (message, duration) => showToast(message, 'success', duration);
+    window.showError = (message, duration) => showToast(message, 'error', duration);
+    window.showWarning = (message, duration) => showToast(message, 'warning', duration);
+    window.showInfo = (message, duration) => showToast(message, 'info', duration);
 
     // Router
     const routes = {
@@ -1264,16 +1390,24 @@ app.get('/wp-admin', (c) => {
             </div>
             <div class="form-group">
               <label>特色图片 URL</label>
-              <input type="url" name="featured_image_url" placeholder="https://example.com/image.jpg">
-              <small style="color: #646970; display: block; margin-top: 5px;">直接输入图片URL地址作为特色图片</small>
+              <input type="url" id="featured-image-url-input" name="featured_image_url" placeholder="https://example.com/image.jpg">
+              <div style="display: flex; gap: 10px; margin-top: 5px;">
+                <button type="button" class="button button-secondary" onclick="openFeaturedImageLibrary('create')">从媒体库选择</button>
+              </div>
+              <small style="color: #646970; display: block; margin-top: 5px;">直接输入图片URL地址或从媒体库选择</small>
             </div>
             <div class="form-group">
               <label>Status</label>
               <select name="status">
                 <option value="draft">Draft</option>
-                <option value="publish">Publish</option>
+                <option value="publish" selected>Publish</option>
                 <option value="private">Private</option>
               </select>
+            </div>
+            <div class="form-group">
+              <label>发布日期 <small style="color: #646970;">(留空使用当前时间)</small></label>
+              <input type="datetime-local" name="date" placeholder="自动使用当前时间">
+              <small style="color: #646970; display: block; margin-top: 5px;">可以自定义文章发布日期</small>
             </div>
             <div class="form-group">
               <label>Categories</label>
@@ -1288,13 +1422,17 @@ app.get('/wp-admin', (c) => {
             </div>
             <div class="form-group">
               <label>Tags</label>
-              <div class="checkbox-group">
+              <div class="checkbox-group" id="tags-checkbox-group">
                 \${tags.map(tag => \`
                   <label>
                     <input type="checkbox" name="tags" value="\${tag.id}">
                     \${tag.name}
                   </label>
                 \`).join('')}
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 5px;">
+                <input type="text" id="new-tag-name" placeholder="创建新标签" style="flex: 1; padding: 5px;">
+                <button type="button" class="button button-secondary" onclick="createAndAddTag('create')">添加新标签</button>
               </div>
             </div>
             <button type="submit" class="button" style="width: 100%;">Create Post</button>
@@ -1322,6 +1460,55 @@ app.get('/wp-admin', (c) => {
 
       // Custom media button handler
       window.currentEditor = contentEditor;
+
+      // Function to create and add new tag
+      window.createAndAddTag = async function(mode) {
+        const inputId = mode === 'edit' ? 'edit-new-tag-name' : 'new-tag-name';
+        const checkboxGroupId = mode === 'edit' ? 'tags-edit-checkbox-group' : 'tags-checkbox-group';
+
+        const tagNameInput = document.getElementById(inputId);
+        const tagName = tagNameInput.value.trim();
+
+        if (!tagName) {
+          showWarning('请输入标签名称');
+          return;
+        }
+
+        try {
+          const response = await fetch(API_BASE + '/tags', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + authToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: tagName })
+          });
+
+          if (response.ok) {
+            const newTag = await response.json();
+
+            // Add checkbox to the list
+            const checkboxGroup = document.getElementById(checkboxGroupId);
+            const newLabel = document.createElement('label');
+            newLabel.innerHTML = \`
+              <input type="checkbox" name="tags" value="\${newTag.id}" checked>
+              \${newTag.name}
+            \`;
+            checkboxGroup.appendChild(newLabel);
+
+            // Clear input
+            tagNameInput.value = '';
+
+            showSuccess('标签创建成功！');
+          } else {
+            const error = await response.json();
+            showError('创建标签失败: ' + error.message);
+          }
+        } catch (error) {
+          console.error('Failed to create tag:', error);
+          showError('创建标签失败');
+        }
+      };
 
       document.getElementById('create-post-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1351,6 +1538,12 @@ app.get('/wp-admin', (c) => {
             postData.featured_image_url = featuredImageUrl.trim();
           }
 
+          // Include custom date if provided
+          const customDate = formData.get('date');
+          if (customDate) {
+            postData.date = new Date(customDate).toISOString();
+          }
+
           const response = await fetch(API_BASE + '/posts', {
             method: 'POST',
             headers: {
@@ -1363,9 +1556,14 @@ app.get('/wp-admin', (c) => {
           if (response.ok) {
             modal.remove();
             await loadPosts();
+            showSuccess('文章创建成功！');
+          } else {
+            const error = await response.json();
+            showError('创建文章失败: ' + (error.message || 'Unknown error'));
           }
         } catch (error) {
           console.error('Failed to create post:', error);
+          showError('创建文章失败: ' + error.message);
         }
       });
     };
@@ -1408,8 +1606,11 @@ app.get('/wp-admin', (c) => {
             </div>
             <div class="form-group">
               <label>特色图片 URL</label>
-              <input type="url" name="featured_image_url" value="\${post.featured_image_url || ''}" placeholder="https://example.com/image.jpg">
-              <small style="color: #646970; display: block; margin-top: 5px;">直接输入图片URL地址作为特色图片</small>
+              <input type="url" id="featured-image-url-edit-input" name="featured_image_url" value="\${post.featured_image_url || ''}" placeholder="https://example.com/image.jpg">
+              <div style="display: flex; gap: 10px; margin-top: 5px;">
+                <button type="button" class="button button-secondary" onclick="openFeaturedImageLibrary('edit')">从媒体库选择</button>
+              </div>
+              <small style="color: #646970; display: block; margin-top: 5px;">直接输入图片URL地址或从媒体库选择</small>
             </div>
             <div class="form-group">
               <label>Status</label>
@@ -1418,6 +1619,11 @@ app.get('/wp-admin', (c) => {
                 <option value="publish" \${post.status === 'publish' ? 'selected' : ''}>Publish</option>
                 <option value="private" \${post.status === 'private' ? 'selected' : ''}>Private</option>
               </select>
+            </div>
+            <div class="form-group">
+              <label>发布日期</label>
+              <input type="datetime-local" name="date" value="\${post.published_at ? new Date(post.published_at).toISOString().slice(0, 16) : ''}">
+              <small style="color: #646970; display: block; margin-top: 5px;">可以自定义文章发布日期，留空保持原有日期</small>
             </div>
             <div class="form-group">
               <label>Categories</label>
@@ -1432,13 +1638,17 @@ app.get('/wp-admin', (c) => {
             </div>
             <div class="form-group">
               <label>Tags</label>
-              <div class="checkbox-group">
+              <div class="checkbox-group" id="tags-edit-checkbox-group">
                 \${tags.map(tag => \`
                   <label>
                     <input type="checkbox" name="tags" value="\${tag.id}" \${post.tags.includes(tag.id) ? 'checked' : ''}>
                     \${tag.name}
                   </label>
                 \`).join('')}
+              </div>
+              <div style="margin-top: 10px; display: flex; gap: 5px;">
+                <input type="text" id="edit-new-tag-name" placeholder="创建新标签" style="flex: 1; padding: 5px;">
+                <button type="button" class="button button-secondary" onclick="createAndAddTag('edit')">添加新标签</button>
               </div>
             </div>
             <button type="submit" class="button" style="width: 100%;">Update Post</button>
@@ -1498,6 +1708,12 @@ app.get('/wp-admin', (c) => {
             postData.featured_image_url = featuredImageUrl.trim();
           }
 
+          // Include custom date if provided
+          const customDate = formData.get('date');
+          if (customDate) {
+            postData.date = new Date(customDate).toISOString();
+          }
+
           const response = await fetch(API_BASE + '/posts/' + id, {
             method: 'PUT',
             headers: {
@@ -1510,9 +1726,14 @@ app.get('/wp-admin', (c) => {
           if (response.ok) {
             modal.remove();
             await loadPosts();
+            showSuccess('文章更新成功！');
+          } else {
+            const error = await response.json();
+            showError('更新文章失败: ' + (error.message || 'Unknown error'));
           }
         } catch (error) {
           console.error('Failed to update post:', error);
+          showError('更新文章失败: ' + error.message);
         }
       });
     };
@@ -2067,12 +2288,12 @@ app.get('/wp-admin', (c) => {
             }, 500);
           } else {
             const error = await response.json();
-            alert('Upload failed: ' + error.message);
+            showError('Upload failed: ' + error.message);
             progressDiv.classList.add('hidden');
           }
         } catch (error) {
           console.error('Failed to upload media:', error);
-          alert('Upload failed. Please try again.');
+          showError('Upload failed. Please try again.');
           progressDiv.classList.add('hidden');
         }
       });
@@ -2126,7 +2347,7 @@ app.get('/wp-admin', (c) => {
 
     window.copyMediaUrl = function(url) {
       navigator.clipboard.writeText(url).then(() => {
-        alert('URL copied to clipboard!');
+        showSuccess('URL copied to clipboard!');
       });
     };
 
@@ -2143,7 +2364,7 @@ app.get('/wp-admin', (c) => {
         showMedia();
       } catch (error) {
         console.error('Failed to delete media:', error);
-        alert('Failed to delete media.');
+        showError('Failed to delete media.');
       }
     };
 
@@ -2243,6 +2464,84 @@ app.get('/wp-admin', (c) => {
       mediaModals.forEach(modal => {
         const header = modal.querySelector('.modal-header h2');
         if (header && header.textContent === 'Insert Media') {
+          modal.remove();
+        }
+      });
+    };
+
+    // Open media library for featured image selection
+    window.openFeaturedImageLibrary = function(mode) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = \`
+        <div class="modal-content" style="max-width: 900px;">
+          <div class="modal-header">
+            <h2>选择特色图片</h2>
+            <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
+          </div>
+          <div style="margin-bottom: 15px;">
+            <button class="button" onclick="showUploadMediaModalInline()">Upload New File</button>
+          </div>
+          <div id="featured-image-library-grid" style="max-height: 60vh; overflow-y: auto;"></div>
+        </div>
+      \`;
+      document.body.appendChild(modal);
+
+      loadFeaturedImageLibrary(mode);
+    };
+
+    async function loadFeaturedImageLibrary(mode) {
+      try {
+        const response = await fetch(API_BASE + '/media?per_page=50', {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const mediaItems = await response.json();
+
+        const container = document.getElementById('featured-image-library-grid');
+        if (mediaItems.length === 0) {
+          container.innerHTML = '<div class="empty-state">No media files yet. Upload your first file!</div>';
+          return;
+        }
+
+        // Filter only images
+        const imageItems = mediaItems.filter(media => media.media_type === 'image');
+
+        if (imageItems.length === 0) {
+          container.innerHTML = '<div class="empty-state">No image files found. Upload an image to use as featured image.</div>';
+          return;
+        }
+
+        container.innerHTML = \`
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
+            \${imageItems.map(media => \`
+              <div class="media-item" style="border: 2px solid #ddd; border-radius: 4px; overflow: hidden; cursor: pointer; transition: border-color 0.2s;" onclick="selectFeaturedImage('\${media.source_url}', '\${mode}')" onmouseover="this.style.borderColor='#2271b1'" onmouseout="this.style.borderColor='#ddd'">
+                <div style="height: 120px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                  <img src="\${media.source_url}" alt="\${media.alt_text}" style="max-width: 100%; max-height: 100%; object-fit: cover;">
+                </div>
+                <div style="padding: 8px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${media.title.rendered}">\${media.title.rendered}</div>
+              </div>
+            \`).join('')}
+          </div>
+        \`;
+      } catch (error) {
+        console.error('Failed to load media library:', error);
+      }
+    }
+
+    window.selectFeaturedImage = function(url, mode) {
+      const inputId = mode === 'edit' ? 'featured-image-url-edit-input' : 'featured-image-url-input';
+      const input = document.getElementById(inputId);
+
+      if (input) {
+        input.value = url;
+        showSuccess('特色图片已选择！');
+      }
+
+      // Close the media library modal
+      const mediaModals = document.querySelectorAll('.modal');
+      mediaModals.forEach(modal => {
+        const header = modal.querySelector('.modal-header h2');
+        if (header && header.textContent === '选择特色图片') {
           modal.remove();
         }
       });
@@ -2380,11 +2679,11 @@ app.get('/wp-admin', (c) => {
             await loadUsersList();
           } else {
             const error = await response.json();
-            alert('Failed to create user: ' + error.message);
+            showError('Failed to create user: ' + error.message);
           }
         } catch (error) {
           console.error('Failed to create user:', error);
-          alert('Failed to create user.');
+          showError('Failed to create user.');
         }
       });
     };
@@ -2483,11 +2782,11 @@ app.get('/wp-admin', (c) => {
             }
           } else {
             const error = await response.json();
-            alert('Failed to update user: ' + error.message);
+            showError('Failed to update user: ' + error.message);
           }
         } catch (error) {
           console.error('Failed to update user:', error);
-          alert('Failed to update user.');
+          showError('Failed to update user.');
         }
       });
     };
@@ -2503,7 +2802,7 @@ app.get('/wp-admin', (c) => {
         await loadUsersList();
       } catch (error) {
         console.error('Failed to delete user:', error);
-        alert('Failed to delete user.');
+        showError('Failed to delete user.');
       }
     };
 
@@ -2667,11 +2966,11 @@ app.get('/wp-admin', (c) => {
             await loadLinksList();
           } else {
             const error = await response.json();
-            alert('Failed to create link: ' + error.message);
+            showError('Failed to create link: ' + error.message);
           }
         } catch (error) {
           console.error('Failed to create link:', error);
-          alert('Failed to create link.');
+          showError('Failed to create link.');
         }
       });
     };
@@ -2769,11 +3068,11 @@ app.get('/wp-admin', (c) => {
             await loadLinksList();
           } else {
             const error = await response.json();
-            alert('Failed to update link: ' + error.message);
+            showError('Failed to update link: ' + error.message);
           }
         } catch (error) {
           console.error('Failed to update link:', error);
-          alert('Failed to update link.');
+          showError('Failed to update link.');
         }
       });
     };
@@ -2789,7 +3088,7 @@ app.get('/wp-admin', (c) => {
         await loadLinksList();
       } catch (error) {
         console.error('Failed to delete link:', error);
-        alert('Failed to delete link.');
+        showError('Failed to delete link.');
       }
     };
 
@@ -3092,6 +3391,7 @@ app.get('/wp-admin', (c) => {
               <td class="actions">
                 \${comment.status !== 'approved' ? \`<a href="#" class="action-link" onclick="approveComment(\${comment.id}); return false;">Approve</a>\` : ''}
                 \${comment.status !== 'spam' ? \`<a href="#" class="action-link" onclick="markAsSpam(\${comment.id}); return false;">Spam</a>\` : ''}
+                <a href="#" class="action-link" onclick="replyToComment(\${comment.id}, \${comment.post_id}); return false;">Reply</a>
                 <a href="#" class="action-link" onclick="editComment(\${comment.id}); return false;">Edit</a>
                 <a href="#" class="action-link delete" onclick="deleteComment(\${comment.id}); return false;">Delete</a>
               </td>
@@ -3162,6 +3462,60 @@ app.get('/wp-admin', (c) => {
       } catch (error) {
         console.error('Failed to mark comment as spam:', error);
       }
+    };
+
+    window.replyToComment = async function(parentId, postId) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = \`
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>回复评论</h2>
+            <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
+          </div>
+          <form id="reply-comment-form">
+            <div class="form-group">
+              <label>回复内容 *</label>
+              <textarea name="content" required style="min-height: 150px;" placeholder="输入回复内容..."></textarea>
+            </div>
+            <button type="submit" class="button" style="width: 100%;">发送回复</button>
+          </form>
+        </div>
+      \`;
+      document.body.appendChild(modal);
+
+      document.getElementById('reply-comment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+
+        try {
+          const response = await fetch(API_BASE + '/comments', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + authToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              post: postId,
+              parent: parentId,
+              content: formData.get('content')
+            })
+          });
+
+          if (response.ok) {
+            modal.remove();
+            const statusFilter = document.getElementById('comment-status-filter').value;
+            await loadCommentsList(statusFilter);
+            showSuccess('回复已发送！');
+          } else {
+            const error = await response.json();
+            showError('发送回复失败: ' + error.message);
+          }
+        } catch (error) {
+          console.error('Failed to reply comment:', error);
+          showError('发送回复失败');
+        }
+      });
     };
 
     window.editComment = async function(id) {
@@ -3783,6 +4137,9 @@ https://example.com/image2.jpg"></textarea>
           <div class="modal-header">
             <h2>Select Media</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
+          </div>
+          <div style="margin-bottom: 15px;">
+            <button class="button" onclick="showUploadMediaModalInline()">Upload New File</button>
           </div>
           <div id="moment-media-library-grid" style="max-height: 60vh; overflow-y: auto;"></div>
         </div>
