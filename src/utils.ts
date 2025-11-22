@@ -479,7 +479,8 @@ export async function formatCommentResponse(
   comment: Comment,
   baseUrl: string,
   postSlug?: string,
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
+  postTitle?: string
 ): Promise<CommentResponse> {
   baseUrl = normalizeBaseUrl(baseUrl);
 
@@ -511,6 +512,11 @@ export async function formatCommentResponse(
     meta: [],
     _links: generateCommentLinks(comment, baseUrl)
   };
+
+  // Add post title if provided
+  if (postTitle) {
+    response.post_title = postTitle;
+  }
 
   // Only include sensitive fields for admin users
   if (isAdmin) {

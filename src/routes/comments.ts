@@ -39,7 +39,7 @@ comments.get('/', optionalAuthMiddleware, async (c) => {
 
     // Build query
     let query = `
-      SELECT c.*, p.slug as post_slug
+      SELECT c.*, p.slug as post_slug, p.title as post_title
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE 1=1
@@ -129,7 +129,8 @@ comments.get('/', optionalAuthMiddleware, async (c) => {
           comment as Comment,
           baseUrl,
           comment.post_slug,
-          isAdmin
+          isAdmin,
+          comment.post_title
         );
       })
     );
@@ -166,7 +167,7 @@ comments.get('/:id', optionalAuthMiddleware, async (c) => {
     const id = parseInt(c.req.param('id'));
 
     const comment = await c.env.DB.prepare(`
-      SELECT c.*, p.slug as post_slug
+      SELECT c.*, p.slug as post_slug, p.title as post_title
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
@@ -185,7 +186,8 @@ comments.get('/:id', optionalAuthMiddleware, async (c) => {
       comment as Comment,
       baseUrl,
       comment.post_slug,
-      isAdmin
+      isAdmin,
+      comment.post_title
     );
 
     return c.json(formattedComment);
@@ -201,7 +203,20 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
     const body = await c.req.json();
-    const { post, parent, author, author_name, author_email, author_url, content } = body;
+    let { post, parent, author, author_name, author_email, author_url, content } = body;
+
+    // If post is not provided but parent is, get post_id from parent comment
+    if (!post && parent) {
+      const parentComment = await c.env.DB.prepare(
+        'SELECT post_id FROM comments WHERE id = ?'
+      )
+        .bind(parent)
+        .first();
+
+      if (parentComment) {
+        post = parentComment.post_id;
+      }
+    }
 
     // Validate required fields
     if (!post) {
@@ -317,7 +332,7 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
 
     // Get the created comment
     const newComment = await c.env.DB.prepare(`
-      SELECT c.*, p.slug as post_slug
+      SELECT c.*, p.slug as post_slug, p.title as post_title
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
@@ -327,7 +342,8 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
       newComment as Comment,
       baseUrl,
       newComment.post_slug,
-      false
+      false,
+      newComment.post_title
     );
 
     // Trigger webhook for comment creation
@@ -406,11 +422,20 @@ comments.put('/:id', authMiddleware, async (c) => {
 
     if (updates.length === 0) {
       // No updates, return existing comment
+      // Get comment with post info
+      const commentWithPost = await c.env.DB.prepare(`
+        SELECT c.*, p.slug as post_slug, p.title as post_title
+        FROM comments c
+        LEFT JOIN posts p ON c.post_id = p.id
+        WHERE c.id = ?
+      `).bind(id).first();
+
       const formattedComment = await formatCommentResponse(
-        existingComment as Comment,
+        commentWithPost as Comment,
         baseUrl,
-        undefined,
-        isAdmin
+        commentWithPost.post_slug,
+        isAdmin,
+        commentWithPost.post_title
       );
       return c.json(formattedComment);
     }
@@ -422,7 +447,7 @@ comments.put('/:id', authMiddleware, async (c) => {
 
     // Get updated comment
     const updatedComment = await c.env.DB.prepare(`
-      SELECT c.*, p.slug as post_slug
+      SELECT c.*, p.slug as post_slug, p.title as post_title
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
@@ -432,7 +457,8 @@ comments.put('/:id', authMiddleware, async (c) => {
       updatedComment as Comment,
       baseUrl,
       updatedComment.post_slug,
-      isAdmin
+      isAdmin,
+      updatedComment.post_title
     );
 
     // Trigger webhook for comment update
@@ -458,7 +484,7 @@ comments.delete('/:id', authMiddleware, async (c) => {
 
     // Check if comment exists
     const comment = await c.env.DB.prepare(`
-      SELECT c.*, p.slug as post_slug
+      SELECT c.*, p.slug as post_slug, p.title as post_title
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
@@ -490,7 +516,8 @@ comments.delete('/:id', authMiddleware, async (c) => {
         comment as Comment,
         baseUrl,
         comment.post_slug,
-        isAdmin
+        isAdmin,
+        comment.post_title
       );
 
       // Trigger webhook for comment deletion
@@ -504,7 +531,7 @@ comments.delete('/:id', authMiddleware, async (c) => {
         .run();
 
       const trashedComment = await c.env.DB.prepare(`
-        SELECT c.*, p.slug as post_slug
+        SELECT c.*, p.slug as post_slug, p.title as post_title
         FROM comments c
         LEFT JOIN posts p ON c.post_id = p.id
         WHERE c.id = ?
@@ -514,7 +541,8 @@ comments.delete('/:id', authMiddleware, async (c) => {
         trashedComment as Comment,
         baseUrl,
         trashedComment.post_slug,
-        isAdmin
+        isAdmin,
+        trashedComment.post_title
       );
 
       // Trigger webhook for comment update

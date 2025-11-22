@@ -219,6 +219,7 @@ export interface Comment {
 export interface CommentResponse {
   id: number;
   post: number;
+  post_title?: string; // Title of the post this comment belongs to
   parent: number;
   author: number; // user_id, 0 for guests
   author_name: string;
