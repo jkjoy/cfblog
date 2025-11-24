@@ -57,6 +57,7 @@ export interface Post {
   comment_status: 'open' | 'closed';
   comment_count: number;
   view_count: number;
+  sticky: number;
   created_at: string;
   updated_at: string;
   published_at: string | null;

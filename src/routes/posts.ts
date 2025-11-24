@@ -271,7 +271,7 @@ posts.post('/', authMiddleware, async (c) => {
     const user = c.get('user') as JWTPayload;
     const body = await c.req.json();
 
-    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url, date } = body;
+    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url, date, sticky } = body;
 
     if (!title) {
       return createWPError('rest_invalid_param', 'Title is required.', 400);
@@ -323,8 +323,8 @@ posts.post('/', authMiddleware, async (c) => {
 
     // Insert post
     const result = await c.env.DB.prepare(
-      `INSERT INTO posts (title, content, excerpt, slug, status, post_type, author_id, featured_media_id, featured_image_url, published_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO posts (title, content, excerpt, slug, status, post_type, author_id, featured_media_id, featured_image_url, sticky, published_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
       .bind(
         title,
@@ -336,6 +336,7 @@ posts.post('/', authMiddleware, async (c) => {
         user.userId,
         featured_media || null,
         featured_image_url || null,
+        sticky ? 1 : 0,
         publishedAt,
         now,
         now
@@ -425,7 +426,7 @@ posts.put('/:id', authMiddleware, async (c) => {
     }
 
     const body = await c.req.json();
-    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url, date } = body;
+    const { title, content, excerpt, slug, status, categories, tags, featured_media, featured_image_url, date, sticky } = body;
 
     // Check publish permission
     if (status === 'publish' && existingPost.status !== 'publish' && !canPublishPost(user)) {
@@ -541,6 +542,11 @@ posts.put('/:id', authMiddleware, async (c) => {
     if (featured_image_url !== undefined) {
       updates.push('featured_image_url = ?');
       params.push(featured_image_url);
+    }
+
+    if (sticky !== undefined) {
+      updates.push('sticky = ?');
+      params.push(sticky ? 1 : 0);
     }
 
     const updateQuery = `UPDATE posts SET ${updates.join(', ')} WHERE id = ?`;

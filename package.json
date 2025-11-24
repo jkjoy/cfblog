@@ -5,11 +5,11 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --local",
-    "dev:remote": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "db:init": "wrangler d1 execute cfblog-db --file=./schema.sql --remote",
-    "db:migrate": "wrangler d1 migrations apply cfblog-db"
+    "dev": "npx wrangler dev --local",
+    "dev:remote": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
+    "db:init": "npx wrangler d1 execute cfblog-db --file=./schema.sql --remote",
+    "db:migrate": "npx wrangler d1 migrations apply cfblog-db"
   },
   "keywords": ["cloudflare", "workers", "blog", "wordpress", "headless"],
   "author": "",

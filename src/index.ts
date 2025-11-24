@@ -8,7 +8,7 @@ import tags from './routes/tags';
 import media from './routes/media';
 import users from './routes/users';
 import links from './routes/links';
-import linkCategories from './routes/link-categories';
+import link分类 from './routes/link-categories';
 import comments from './routes/comments';
 import pages from './routes/pages';
 import settings from './routes/settings';
@@ -207,11 +207,11 @@ app.get('/', async (c) => {
         <span class="info-value">/wp-json/wp/v2/posts</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Categories:</span>
+        <span class="info-label">分类:</span>
         <span class="info-value">/wp-json/wp/v2/categories</span>
       </div>
       <div class="info-item">
-        <span class="info-label">Tags:</span>
+        <span class="info-label">标签:</span>
         <span class="info-value">/wp-json/wp/v2/tags</span>
       </div>
       <div class="info-item">
@@ -500,7 +500,7 @@ app.route('/wp-json/wp/v2/tags', tags);
 app.route('/wp-json/wp/v2/media', media);
 app.route('/wp-json/wp/v2/users', users);
 app.route('/wp-json/wp/v2/links', links);
-app.route('/wp-json/wp/v2/link-categories', linkCategories);
+app.route('/wp-json/wp/v2/link-categories', link分类);
 app.route('/wp-json/wp/v2/comments', comments);
 app.route('/wp-json/wp/v2/settings', settings);
 app.route('/wp-json/wp/v2/moments', moments);
@@ -721,7 +721,7 @@ app.get('/wp-admin', (c) => {
       padding: 12px;
       margin-bottom: 20px;
     }
-    .hidden {
+    .隐藏 {
       display: none !important;
     }
     .page-header {
@@ -734,7 +734,7 @@ app.get('/wp-admin', (c) => {
       background: #fff;
       border: 1px solid #c3c4c7;
       border-radius: 4px;
-      overflow: hidden;
+      overflow: 隐藏;
     }
     table {
       width: 100%;
@@ -978,6 +978,152 @@ app.get('/wp-admin', (c) => {
     .toast.removing {
       animation: slideOut 0.3s ease-out forwards;
     }
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .sidebar {
+        position: fixed;
+        left: -160px;
+        transition: left 0.3s ease;
+        z-index: 1000;
+      }
+      .sidebar.open {
+        left: 0;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+      .top-bar {
+        padding: 10px 15px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .top-bar h1 {
+        font-size: 18px;
+        width: 100%;
+        order: 2;
+      }
+      .user-info {
+        width: 100%;
+        justify-content: space-between;
+        order: 1;
+      }
+      .content-area {
+        padding: 15px;
+      }
+      .page-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .page-header .button {
+        width: 100%;
+        text-align: center;
+      }
+      .table-container {
+        overflow-x: auto;
+      }
+      table {
+        min-width: 600px;
+      }
+      .modal-content {
+        width: 95%;
+        max-width: none;
+        max-height: 95vh;
+        margin: 10px;
+        padding: 20px;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .stat-card {
+        padding: 15px;
+      }
+      .stat-card .number {
+        font-size: 24px;
+      }
+      .welcome-panel {
+        padding: 20px;
+      }
+      .welcome-panel h2 {
+        font-size: 18px;
+      }
+      .form-group input,
+      .form-group textarea,
+      .form-group select {
+        font-size: 16px;
+      }
+      .actions {
+        flex-direction: column;
+        gap: 5px;
+      }
+      .checkbox-group {
+        max-height: 120px;
+      }
+      .login-form {
+        margin: 20px;
+        padding: 25px;
+      }
+      .login-form h1 {
+        font-size: 24px;
+      }
+      #lang-switcher {
+        padding: 4px;
+        font-size: 12px;
+      }
+      .info {
+        padding: 15px;
+      }
+      .info-item {
+        flex-direction: column;
+        gap: 5px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+      .button-group {
+        flex-direction: column;
+      }
+      .button-group .button {
+        width: 100%;
+      }
+    }
+
+    /* Mobile menu toggle button */
+    .mobile-menu-toggle {
+      display: none;
+      background: #2271b1;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    @media (max-width: 768px) {
+      .mobile-menu-toggle {
+        display: block;
+      }
+    }
+
+    /* Sidebar overlay for mobile */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+    .sidebar-overlay.show {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -988,6 +1134,114 @@ app.get('/wp-admin', (c) => {
     const API_BASE = '/wp-json/wp/v2';
     let currentUser = null;
     let authToken = localStorage.getItem('auth_token');
+
+    // i18n Language System
+    const i18n = {
+      currentLang: 'zh',
+
+      t(key) {
+        const lang = this.currentLang;
+        const keys = key.split('.');
+        let value = this.translations[lang];
+
+        for (const k of keys) {
+          if (value && typeof value === 'object') {
+            value = value[k];
+          } else {
+            return key;
+          }
+        }
+
+        return typeof value === 'string' ? value : key;
+      },
+
+      setLang(lang) {
+        this.currentLang = lang;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('admin_lang', lang);
+        }
+      },
+
+      initLang() {
+        if (typeof localStorage !== 'undefined') {
+          const savedLang = localStorage.getItem('admin_lang');
+          if (savedLang === 'zh' || savedLang === 'en') {
+            this.currentLang = savedLang;
+          }
+        }
+      },
+
+      translations: {
+        zh: {
+          nav: { dashboard: '仪表盘', posts: '文章', pages: '页面', moments: '动态', categories: '分类', tags: '标签', media: '媒体库', links: '友情链接', comments: '评论', users: '用户', settings: '设置', logout: '退出登录' },
+          common: { add: '添加', edit: '编辑', delete: '删除', create: '创建', update: '更新', save: '保存', cancel: '取消', close: '关闭', view: '查看', upload: '上传', insert: '插入', search: '搜索', filter: '筛选', all: '全部', yes: '是', no: '否', actions: '操作', status: '状态', date: '日期', name: '名称', slug: '别名', description: '描述', count: '数量', required: '必填', optional: '可选' },
+          posts: { title: '文章', allPosts: '所有文章', addNew: '添加文章', createNew: '创建新文章', editPost: '编辑文章', postTitle: '标题', content: '内容', excerpt: '摘要', featuredImage: '特色图片', sticky: '置顶', publishDate: '发布日期', categories: '分类', tags: '标签', author: '作者', noPostsYet: '还没有文章。创建你的第一篇文章！', createPost: '创建文章', updatePost: '更新文章', deleteConfirm: '确定要删除这篇文章吗？', addMedia: '添加媒体', selectFromLibrary: '从媒体库选择', autoGenerated: '留空自动生成', customDate: '可以自定义文章发布日期', createNewTag: '创建新标签', addNewTag: '添加新标签' },
+          statusOptions: { draft: '草稿', publish: '发布', published: '已发布', private: '私密', pending: '待审核', approved: '已批准', spam: '垃圾', trash: '回收站', open: '开启', closed: '关闭' },
+          categories: { title: '分类', allCategories: '所有分类', addNew: '添加分类', createNew: '创建新分类', editCategory: '编辑分类', categoryName: '分类名称', parentCategory: '父分类', none: '无', noCategories: '还没有分类。', createCategory: '创建分类', updateCategory: '更新分类', deleteConfirm: '确定要删除这个分类吗？' },
+          tags: { title: '标签', allTags: '所有标签', addNew: '添加标签', createNew: '创建新标签', editTag: '编辑标签', tagName: '标签名称', noTags: '还没有标签。', createTag: '创建标签', updateTag: '更新标签', deleteConfirm: '确定要删除这个标签吗？' },
+          media: { title: '媒体库', uploadFiles: '上传文件', uploadNew: '上传新媒体', selectFile: '选择文件', fileName: '文件名', fileType: '文件类型', fileSize: '文件大小', uploadedDate: '上传日期', altText: '替代文本', noMedia: '未找到媒体文件。', uploadMedia: '上传媒体' },
+          users: { title: '用户', allUsers: '所有用户', addNew: '添加用户', createNew: '创建新用户', editUser: '编辑用户', username: '用户名', email: '邮箱', displayName: '显示名称', password: '密码', role: '角色', bio: '简介', registered: '注册时间', noUsers: '未找到用户。', createUser: '创建用户', updateUser: '更新用户', deleteConfirm: '确定要删除这个用户吗？' },
+          roles: { administrator: '管理员', editor: '编辑', author: '作者', contributor: '贡献者', subscriber: '订阅者' },
+          pages: { title: '页面', allPages: '所有页面', addNew: '添加页面', createNew: '创建新页面', editPage: '编辑页面', noPages: '还没有页面。', createPage: '创建页面', updatePage: '更新页面', deleteConfirm: '确定要删除这个页面吗？', commentStatus: '评论状态' },
+          moments: { title: '动态', allMoments: '所有动态', addNew: '添加动态', createNew: '创建新动态', editMoment: '编辑动态', momentContent: '动态内容', mediaUrls: '媒体 URL', noMoments: '还没有动态。', createMoment: '创建动态', updateMoment: '更新动态', deleteConfirm: '确定要删除这条动态吗？', whatOnMind: '分享你的想法...' },
+          comments: { title: '评论', allComments: '所有评论', author: '作者', comment: '评论', post: '文章', noComments: '未找到评论。', noEmail: '无邮箱', approve: '批准', markAsSpam: '标记为垃圾', reply: '回复', replyTo: '回复评论', replyContent: '回复内容', sendReply: '发送回复', editComment: '编辑评论', deleteConfirm: '确定要删除这条评论吗？' },
+          links: { title: '友情链接', allLinks: '所有链接', addNew: '添加链接', createNew: '创建新链接', editLink: '编辑链接', siteName: '网站名称', siteUrl: '网站地址', linkDescription: '链接描述', avatarUrl: '头像 URL', linkCategory: '链接分类', target: '打开方式', visible: '可见', sortOrder: '排序', noLinks: '还没有链接。', createLink: '创建链接', updateLink: '更新链接', deleteConfirm: '确定要删除这个链接吗？', manageCategories: '管理分类', lowerFirst: '数字越小排序越靠前' },
+          settings: { title: '网站设置', language: '界面语言', languageHint: '选择后台管理界面的显示语言', siteTitle: '网站标题', siteDescription: '网站描述', siteKeywords: '网站关键词', siteAuthor: '网站作者', siteFavicon: '网站图标', siteLogo: '网站Logo', siteIcp: 'ICP备案号', footerText: '页脚文本', webhookUrl: 'Webhook地址', webhookSecret: 'Webhook密钥', webhookEvents: 'Webhook事件', saveSettings: '保存设置', settingsSaved: '设置已保存！' },
+          dashboard: { welcome: '欢迎来到', subtitle: '基于 Cloudflare Workers、D1 和 R2 的 WordPress 风格无头博客', stats: { posts: '文章', pages: '页面', comments: '评论', categories: '分类', tags: '标签', media: '媒体', links: '链接', users: '用户', moments: '动态' } },
+          messages: { loading: '加载中...', saving: '保存中...', saved: '已保存', created: '创建成功！', updated: '更新成功！', deleted: '删除成功！', uploaded: '上传成功！', failed: '操作失败', error: '发生错误', confirm: '确认', cancel: '取消' }
+        },
+        en: {
+          nav: { dashboard: 'Dashboard', posts: 'Posts', pages: 'Pages', moments: 'Moments', categories: 'Categories', tags: 'Tags', media: 'Media', links: 'Links', comments: 'Comments', users: 'Users', settings: 'Settings', logout: 'Logout' },
+          common: { add: 'Add', edit: 'Edit', delete: 'Delete', create: 'Create', update: 'Update', save: 'Save', cancel: 'Cancel', close: 'Close', view: 'View', upload: 'Upload', insert: 'Insert', search: 'Search', filter: 'Filter', all: 'All', yes: 'Yes', no: 'No', actions: 'Actions', status: 'Status', date: 'Date', name: 'Name', slug: 'Slug', description: 'Description', count: 'Count', required: 'Required', optional: 'Optional' },
+          posts: { title: 'Posts', allPosts: 'All Posts', addNew: 'Add New', createNew: 'Create New Post', editPost: 'Edit Post', postTitle: 'Title', content: 'Content', excerpt: 'Excerpt', featuredImage: 'Featured Image', sticky: 'Sticky', publishDate: 'Publish Date', categories: 'Categories', tags: 'Tags', author: 'Author', noPostsYet: 'No posts yet. Create your first post!', createPost: 'Create Post', updatePost: 'Update Post', deleteConfirm: 'Are you sure you want to delete this post?', addMedia: 'Add Media', selectFromLibrary: 'Select from Library', autoGenerated: 'Leave empty for auto-generation', customDate: 'Custom publish date', createNewTag: 'Create new tag', addNewTag: 'Add New Tag' },
+          statusOptions: { draft: 'Draft', publish: 'Publish', published: 'Published', private: 'Private', pending: 'Pending', approved: 'Approved', spam: 'Spam', trash: 'Trash', open: 'Open', closed: 'Closed' },
+          categories: { title: 'Categories', allCategories: 'All Categories', addNew: 'Add New', createNew: 'Create New Category', editCategory: 'Edit Category', categoryName: 'Category Name', parentCategory: 'Parent Category', none: 'None', noCategories: 'No categories yet.', createCategory: 'Create Category', updateCategory: 'Update Category', deleteConfirm: 'Are you sure you want to delete this category?' },
+          tags: { title: 'Tags', allTags: 'All Tags', addNew: 'Add New', createNew: 'Create New Tag', editTag: 'Edit Tag', tagName: 'Tag Name', noTags: 'No tags yet.', createTag: 'Create Tag', updateTag: 'Update Tag', deleteConfirm: 'Are you sure you want to delete this tag?' },
+          media: { title: 'Media Library', uploadFiles: 'Upload Files', uploadNew: 'Upload New Media', selectFile: 'Select File', fileName: 'File Name', fileType: 'File Type', fileSize: 'File Size', uploadedDate: 'Uploaded Date', altText: 'Alt Text', noMedia: 'No media found.', uploadMedia: 'Upload Media' },
+          users: { title: 'Users', allUsers: 'All Users', addNew: 'Add New', createNew: 'Create New User', editUser: 'Edit User', username: 'Username', email: 'Email', displayName: 'Display Name', password: 'Password', role: 'Role', bio: 'Bio', registered: 'Registered', noUsers: 'No users found.', createUser: 'Create User', updateUser: 'Update User', deleteConfirm: 'Are you sure you want to delete this user?' },
+          roles: { administrator: 'Administrator', editor: 'Editor', author: 'Author', contributor: 'Contributor', subscriber: 'Subscriber' },
+          pages: { title: 'Pages', allPages: 'All Pages', addNew: 'Add New', createNew: 'Create New Page', editPage: 'Edit Page', noPages: 'No pages yet.', createPage: 'Create Page', updatePage: 'Update Page', deleteConfirm: 'Are you sure you want to delete this page?', commentStatus: 'Comment Status' },
+          moments: { title: 'Moments', allMoments: 'All Moments', addNew: 'Add New', createNew: 'Create New Moment', editMoment: 'Edit Moment', momentContent: 'Moment Content', mediaUrls: 'Media URLs', noMoments: 'No moments yet.', createMoment: 'Create Moment', updateMoment: 'Update Moment', deleteConfirm: 'Are you sure you want to delete this moment?', whatOnMind: "What's on your mind?" },
+          comments: { title: 'Comments', allComments: 'All Comments', author: 'Author', comment: 'Comment', post: 'Post', noComments: 'No comments found.', noEmail: 'No email', approve: 'Approve', markAsSpam: 'Mark as Spam', reply: 'Reply', replyTo: 'Reply to Comment', replyContent: 'Reply Content', sendReply: 'Send Reply', editComment: 'Edit Comment', deleteConfirm: 'Are you sure you want to delete this comment?' },
+          links: { title: 'Links', allLinks: 'All Links', addNew: 'Add New', createNew: 'Create New Link', editLink: 'Edit Link', siteName: 'Site Name', siteUrl: 'Site URL', linkDescription: 'Link Description', avatarUrl: 'Avatar URL', linkCategory: 'Link Category', target: 'Target', visible: 'Visible', sortOrder: 'Sort Order', noLinks: 'No links yet.', createLink: 'Create Link', updateLink: 'Update Link', deleteConfirm: 'Are you sure you want to delete this link?', manageCategories: 'Manage Categories', lowerFirst: 'Lower numbers appear first' },
+          settings: { title: 'Site Settings', language: 'Interface Language', languageHint: 'Choose the display language for admin interface', siteTitle: 'Site Title', siteDescription: 'Site Description', siteKeywords: 'Site Keywords', siteAuthor: 'Site Author', siteFavicon: 'Site Favicon', siteLogo: 'Site Logo', siteIcp: 'ICP Number', footerText: 'Footer Text', webhookUrl: 'Webhook URL', webhookSecret: 'Webhook Secret', webhookEvents: 'Webhook Events', saveSettings: 'Save Settings', settingsSaved: 'Settings saved!' },
+          dashboard: { welcome: 'Welcome to', subtitle: 'Your WordPress-like headless blog powered by Cloudflare Workers, D1, and R2', stats: { posts: 'Posts', pages: 'Pages', comments: 'Comments', categories: 'Categories', tags: 'Tags', media: 'Media', links: 'Links', users: 'Users', moments: 'Moments' } },
+          messages: { loading: 'Loading...', saving: 'Saving...', saved: 'Saved', created: 'Created successfully!', updated: 'Updated successfully!', deleted: 'Deleted successfully!', uploaded: 'Uploaded successfully!', failed: 'Operation failed', error: 'An error occurred', confirm: 'Confirm', cancel: 'Cancel' }
+        }
+      }
+    };
+
+    // Initialize language on load
+    i18n.initLang();
+
+    // Helper function to translate status values
+    function translateStatus(status) {
+      const statusMap = {
+        'draft': 'statusOptions.draft',
+        'publish': 'statusOptions.publish',
+        'published': 'statusOptions.published',
+        'private': 'statusOptions.private',
+        'pending': 'statusOptions.pending',
+        'approved': 'statusOptions.approved',
+        'spam': 'statusOptions.spam',
+        'trash': 'statusOptions.trash',
+        'open': 'statusOptions.open',
+        'closed': 'statusOptions.closed'
+      };
+      return i18n.t(statusMap[status] || status);
+    }
+
+    // Helper function to translate role values
+    function translateRole(role) {
+      const roleMap = {
+        'administrator': 'roles.administrator',
+        'editor': 'roles.editor',
+        'author': 'roles.author',
+        'contributor': 'roles.contributor',
+        'subscriber': 'roles.subscriber'
+      };
+      return i18n.t(roleMap[role] || role);
+    }
 
     // Toast notification system
     function showToast(message, type = 'info', duration = 3000) {
@@ -1037,8 +1291,8 @@ app.get('/wp-admin', (c) => {
       '/posts': showPosts,
       '/pages': showPages,
       '/moments': showMoments,
-      '/categories': showCategories,
-      '/tags': showTags,
+      '/categories': show分类,
+      '/tags': show标签,
       '/media': showMedia,
       '/users': showUsers,
       '/links': showLinks,
@@ -1103,7 +1357,7 @@ app.get('/wp-admin', (c) => {
       document.getElementById('app').innerHTML = \`
         <div class="login-form">
           <h1>${c.env.SITE_NAME || 'CFBlog'}</h1>
-          <div id="form-error" class="error-message hidden"></div>
+          <div id="form-error" class="error-message 隐藏"></div>
 
           <!-- Login Form -->
           <form id="login-form">
@@ -1174,11 +1428,11 @@ app.get('/wp-admin', (c) => {
           } else {
             const error = await response.json();
             document.getElementById('form-error').textContent = error.message;
-            document.getElementById('form-error').classList.remove('hidden');
+            document.getElementById('form-error').classList.remove('隐藏');
           }
         } catch (error) {
           document.getElementById('form-error').textContent = 'Login failed. Please try again.';
-          document.getElementById('form-error').classList.remove('hidden');
+          document.getElementById('form-error').classList.remove('隐藏');
         }
       });
 
@@ -1208,11 +1462,11 @@ app.get('/wp-admin', (c) => {
             } else {
               const error = await response.json();
               document.getElementById('form-error').textContent = error.message;
-              document.getElementById('form-error').classList.remove('hidden');
+              document.getElementById('form-error').classList.remove('隐藏');
             }
           } catch (error) {
             document.getElementById('form-error').textContent = 'Registration failed. Please try again.';
-            document.getElementById('form-error').classList.remove('hidden');
+            document.getElementById('form-error').classList.remove('隐藏');
           }
         });
       }
@@ -1221,49 +1475,49 @@ app.get('/wp-admin', (c) => {
     // Dashboard
     async function showDashboard() {
       const app = document.getElementById('app');
-      renderLayout('Dashboard');
+      renderLayout(i18n.t('nav.dashboard'));
 
       const content = document.querySelector('.content-area');
       content.innerHTML = \`
         <div class="welcome-panel">
-          <h2>Welcome to ${c.env.SITE_NAME || 'CFBlog'}!</h2>
-          <p>Your WordPress-like headless blog powered by Cloudflare Workers, D1, and R2.</p>
+          <h2>\${i18n.t('dashboard.welcome')} ${c.env.SITE_NAME || 'CFBlog'}!</h2>
+          <p>\${i18n.t('dashboard.subtitle')}</p>
         </div>
         <div class="stats-grid">
           <div class="stat-card">
-            <h3>Posts</h3>
+            <h3>\${i18n.t('dashboard.stats.posts')}</h3>
             <div class="number" id="posts-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Pages</h3>
+            <h3>\${i18n.t('dashboard.stats.pages')}</h3>
             <div class="number" id="pages-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Comments</h3>
+            <h3>\${i18n.t('dashboard.stats.comments')}</h3>
             <div class="number" id="comments-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Categories</h3>
+            <h3>\${i18n.t('dashboard.stats.categories')}</h3>
             <div class="number" id="categories-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Tags</h3>
+            <h3>\${i18n.t('dashboard.stats.tags')}</h3>
             <div class="number" id="tags-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Media</h3>
+            <h3>\${i18n.t('dashboard.stats.media')}</h3>
             <div class="number" id="media-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Links</h3>
+            <h3>\${i18n.t('dashboard.stats.links')}</h3>
             <div class="number" id="links-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Users</h3>
+            <h3>\${i18n.t('dashboard.stats.users')}</h3>
             <div class="number" id="users-count">-</div>
           </div>
           <div class="stat-card">
-            <h3>Moments</h3>
+            <h3>\${i18n.t('dashboard.stats.moments')}</h3>
             <div class="number" id="moments-count">-</div>
           </div>
         </div>
@@ -1297,19 +1551,19 @@ app.get('/wp-admin', (c) => {
         document.getElementById('users-count').textContent = users.headers.get('X-WP-Total') || '0';
         document.getElementById('moments-count').textContent = moments.headers.get('X-WP-Total') || '0';
       } catch (error) {
-        console.error('Failed to load stats:', error);
+        console.error('加载失败 stats:', error);
       }
     }
 
     // Posts Management
     async function showPosts() {
-      renderLayout('Posts');
+      renderLayout(i18n.t('nav.posts'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>All Posts</h2>
-          <button class="button" onclick="showCreatePostModal()">Add New Post</button>
+          <h2>\${i18n.t('posts.allPosts')}</h2>
+          <button class="button" onclick="showCreatePostModal()">\${i18n.t('posts.addNew')}</button>
         </div>
         <div id="posts-list"></div>
       \`;
@@ -1326,7 +1580,7 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('posts-list');
         if (posts.length === 0) {
-          container.innerHTML = '<div class="empty-state">No posts yet. Create your first post!</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('posts.noPostsYet')}</div>\`;
           return;
         }
 
@@ -1335,21 +1589,21 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Title</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('posts.postTitle')}</th>
+                  <th>\${i18n.t('common.status')}</th>
+                  <th>\${i18n.t('common.date')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 \${posts.map(post => \`
                   <tr>
-                    <td><strong>\${post.title.rendered}</strong></td>
-                    <td>\${post.status}</td>
+                    <td><strong>\${post.sticky ? '📌 ' : ''}\${post.title.rendered}</strong></td>
+                    <td>\${translateStatus(post.status)}</td>
                     <td>\${new Date(post.date).toLocaleDateString()}</td>
                     <td class="actions">
-                      <a href="#" class="action-link" onclick="editPost(\${post.id}); return false;">Edit</a>
-                      <a href="#" class="action-link delete" onclick="deletePost(\${post.id}); return false;">Delete</a>
+                      <a href="#" class="action-link" onclick="editPost(\${post.id}); return false;">\${i18n.t('common.edit')}</a>
+                      <a href="#" class="action-link delete" onclick="deletePost(\${post.id}); return false;">\${i18n.t('common.delete')}</a>
                     </td>
                   </tr>
                 \`).join('')}
@@ -1358,40 +1612,40 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load posts:', error);
+        console.error('加载失败 posts:', error);
       }
     }
 
     window.showCreatePostModal = async function() {
-      const categories = await fetchCategories();
-      const tags = await fetchTags();
+      const categories = await fetch分类();
+      const tags = await fetch标签();
 
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Create New Post</h2>
+            <h2>创建新文章</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-post-form">
             <div class="form-group">
-              <label>Title *</label>
+              <label>标题 *</label>
               <input type="text" name="title" required>
             </div>
             <div class="form-group">
-              <label>Slug (URL) <small style="color: #646970;">(留空自动生成)</small></label>
+              <label>别名 (URL) <small style="color: #646970;">(留空自动生成)</small></label>
               <input type="text" name="slug" placeholder="auto-generated-from-title">
             </div>
             <div class="form-group">
-              <label>Content</label>
+              <label>内容</label>
               <div style="margin-bottom: 10px;">
-                <button type="button" class="button button-secondary" onclick="openMediaLibrary('create')">Add Media</button>
+                <button type="button" class="button button-secondary" onclick="openMediaLibrary('create')">添加媒体</button>
               </div>
               <textarea id="post-content" name="content"></textarea>
             </div>
             <div class="form-group">
-              <label>Excerpt</label>
+              <label>摘要</label>
               <textarea name="excerpt" style="min-height: 100px;"></textarea>
             </div>
             <div class="form-group">
@@ -1403,20 +1657,28 @@ app.get('/wp-admin', (c) => {
               <small style="color: #646970; display: block; margin-top: 5px;">直接输入图片URL地址或从媒体库选择</small>
             </div>
             <div class="form-group">
-              <label>Status</label>
+              <label>状态</label>
               <select name="status">
-                <option value="draft">Draft</option>
-                <option value="publish" selected>Publish</option>
-                <option value="private">Private</option>
+                <option value="draft">草稿</option>
+                <option value="publish" selected>发布</option>
+                <option value="private">私密</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Date posted <small style="color: #646970;">(留空使用当前时间)</small></label>
+              <label>置顶</label>
+              <select name="sticky">
+                <option value="false" selected>否</option>
+                <option value="true">是</option>
+              </select>
+              <small style="color: #646970; display: block; margin-top: 5px;">设置为"是"后文章将显示在列表顶部</small>
+            </div>
+            <div class="form-group">
+              <label>发布日期 <small style="color: #646970;">(留空使用当前时间)</small></label>
               <input type="datetime-local" name="date" placeholder="自动使用当前时间">
               <small style="color: #646970; display: block; margin-top: 5px;">可以自定义文章发布日期</small>
             </div>
             <div class="form-group">
-              <label>Categories</label>
+              <label>分类</label>
               <div class="checkbox-group">
                 \${categories.map(cat => \`
                   <label>
@@ -1427,7 +1689,7 @@ app.get('/wp-admin', (c) => {
               </div>
             </div>
             <div class="form-group">
-              <label>Tags</label>
+              <label>标签</label>
               <div class="checkbox-group" id="tags-checkbox-group">
                 \${tags.map(tag => \`
                   <label>
@@ -1437,11 +1699,11 @@ app.get('/wp-admin', (c) => {
                 \`).join('')}
               </div>
               <div style="margin-top: 10px; display: flex; gap: 5px;">
-                <input type="text" id="new-tag-name" placeholder="Create new tag" style="flex: 1; padding: 5px;">
-                <button type="button" class="button button-secondary" onclick="createAndAddTag('create')">Add New Tag</button>
+                <input type="text" id="new-tag-name" placeholder="创建新标签" style="flex: 1; padding: 5px;">
+                <button type="button" class="button button-secondary" onclick="createAndAddTag('create')">添加新标签</button>
               </div>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Create Post</button>
+            <button type="submit" class="button" style="width: 100%;">创建文章</button>
           </form>
         </div>
       \`;
@@ -1511,7 +1773,7 @@ app.get('/wp-admin', (c) => {
             showError('创建标签失败: ' + error.message);
           }
         } catch (error) {
-          console.error('Failed to create tag:', error);
+          console.error('创建失败 tag:', error);
           showError('创建标签失败');
         }
       };
@@ -1528,6 +1790,7 @@ app.get('/wp-admin', (c) => {
             content: contentEditor.value(), // Get content from EasyMDE
             excerpt: formData.get('excerpt'),
             status: formData.get('status'),
+            sticky: formData.get('sticky') === 'true',
             categories: categories.length > 0 ? categories : [1],
             tags: tags
           };
@@ -1568,7 +1831,7 @@ app.get('/wp-admin', (c) => {
             showError('创建文章失败: ' + (error.message || 'Unknown error'));
           }
         } catch (error) {
-          console.error('Failed to create post:', error);
+          console.error('创建失败 post:', error);
           showError('创建文章失败: ' + error.message);
         }
       });
@@ -1579,35 +1842,35 @@ app.get('/wp-admin', (c) => {
         headers: { 'Authorization': 'Bearer ' + authToken }
       }).then(r => r.json());
 
-      const categories = await fetchCategories();
-      const tags = await fetchTags();
+      const categories = await fetch分类();
+      const tags = await fetch标签();
 
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Post</h2>
+            <h2>编辑文章</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-post-form">
             <div class="form-group">
-              <label>Title *</label>
+              <label>标题 *</label>
               <input type="text" name="title" value="\${post.title.rendered}" required>
             </div>
             <div class="form-group">
-              <label>Slug (URL)</label>
+              <label>别名 (URL)</label>
               <input type="text" name="slug" value="\${post.slug}">
             </div>
             <div class="form-group">
-              <label>Content</label>
+              <label>内容</label>
               <div style="margin-bottom: 10px;">
-                <button type="button" class="button button-secondary" onclick="openMediaLibrary('edit', \${post.id})">Add Media</button>
+                <button type="button" class="button button-secondary" onclick="openMediaLibrary('edit', \${post.id})">添加媒体</button>
               </div>
               <textarea id="post-content-edit" name="content">\${post.content.rendered}</textarea>
             </div>
             <div class="form-group">
-              <label>Excerpt</label>
+              <label>摘要</label>
               <textarea name="excerpt" style="min-height: 100px;">\${post.excerpt.rendered}</textarea>
             </div>
             <div class="form-group">
@@ -1619,12 +1882,20 @@ app.get('/wp-admin', (c) => {
               <small style="color: #646970; display: block; margin-top: 5px;">直接输入图片URL地址或从媒体库选择</small>
             </div>
             <div class="form-group">
-              <label>Status</label>
+              <label>状态</label>
               <select name="status">
-                <option value="draft" \${post.status === 'draft' ? 'selected' : ''}>Draft</option>
-                <option value="publish" \${post.status === 'publish' ? 'selected' : ''}>Publish</option>
-                <option value="private" \${post.status === 'private' ? 'selected' : ''}>Private</option>
+                <option value="draft" \${post.status === 'draft' ? 'selected' : ''}>草稿</option>
+                <option value="publish" \${post.status === 'publish' ? 'selected' : ''}>发布</option>
+                <option value="private" \${post.status === 'private' ? 'selected' : ''}>私密</option>
               </select>
+            </div>
+            <div class="form-group">
+              <label>置顶</label>
+              <select name="sticky">
+                <option value="false" \${!post.sticky ? 'selected' : ''}>否</option>
+                <option value="true" \${post.sticky ? 'selected' : ''}>是</option>
+              </select>
+              <small style="color: #646970; display: block; margin-top: 5px;">设置为"是"后文章将显示在列表顶部</small>
             </div>
             <div class="form-group">
               <label>发布日期</label>
@@ -1632,7 +1903,7 @@ app.get('/wp-admin', (c) => {
               <small style="color: #646970; display: block; margin-top: 5px;">可以自定义文章发布日期，留空保持原有日期</small>
             </div>
             <div class="form-group">
-              <label>Categories</label>
+              <label>分类</label>
               <div class="checkbox-group">
                 \${categories.map(cat => \`
                   <label>
@@ -1643,7 +1914,7 @@ app.get('/wp-admin', (c) => {
               </div>
             </div>
             <div class="form-group">
-              <label>Tags</label>
+              <label>标签</label>
               <div class="checkbox-group" id="tags-edit-checkbox-group">
                 \${tags.map(tag => \`
                   <label>
@@ -1657,7 +1928,7 @@ app.get('/wp-admin', (c) => {
                 <button type="button" class="button button-secondary" onclick="createAndAddTag('edit')">添加新标签</button>
               </div>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Update Post</button>
+            <button type="submit" class="button" style="width: 100%;">更新文章</button>
           </form>
         </div>
       \`;
@@ -1698,6 +1969,7 @@ app.get('/wp-admin', (c) => {
             content: editContentEditor.value(), // Get content from EasyMDE
             excerpt: formData.get('excerpt'),
             status: formData.get('status'),
+            sticky: formData.get('sticky') === 'true',
             categories: categories,
             tags: tags
           };
@@ -1738,14 +2010,14 @@ app.get('/wp-admin', (c) => {
             showError('更新文章失败: ' + (error.message || 'Unknown error'));
           }
         } catch (error) {
-          console.error('Failed to update post:', error);
+          console.error('更新失败 post:', error);
           showError('更新文章失败: ' + error.message);
         }
       });
     };
 
     window.deletePost = async function(id) {
-      if (!confirm('Are you sure you want to delete this post?')) return;
+      if (!confirm('确定要删除 this post?')) return;
 
       try {
         await fetch(API_BASE + '/posts/' + id + '?force=true', {
@@ -1754,34 +2026,34 @@ app.get('/wp-admin', (c) => {
         });
         await loadPosts();
       } catch (error) {
-        console.error('Failed to delete post:', error);
+        console.error('删除失败 post:', error);
       }
     };
 
-    // Categories Management
-    async function showCategories() {
-      renderLayout('Categories');
+    // 分类 Management
+    async function show分类() {
+      renderLayout(i18n.t('nav.categories'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>Categories</h2>
-          <button class="button" onclick="showCreateCategoryModal()">Add New Category</button>
+          <h2>\${i18n.t('categories.title')}</h2>
+          <button class="button" onclick="showCreateCategoryModal()">\${i18n.t('categories.addNew')}</button>
         </div>
         <div id="categories-list"></div>
       \`;
 
-      await loadCategories();
+      await load分类();
     }
 
-    async function loadCategories() {
+    async function load分类() {
       try {
         const response = await fetch(API_BASE + '/categories?per_page=100');
         const categories = await response.json();
 
         const container = document.getElementById('categories-list');
         if (categories.length === 0) {
-          container.innerHTML = '<div class="empty-state">No categories yet.</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('categories.noCategories')}</div>\`;
           return;
         }
 
@@ -1790,10 +2062,10 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Slug</th>
-                  <th>Count</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('common.name')}</th>
+                  <th>\${i18n.t('common.slug')}</th>
+                  <th>\${i18n.t('common.count')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1803,8 +2075,8 @@ app.get('/wp-admin', (c) => {
                     <td>\${cat.slug}</td>
                     <td>\${cat.count}</td>
                     <td class="actions">
-                      <a href="#" class="action-link" onclick="editCategory(\${cat.id}); return false;">Edit</a>
-                      \${cat.id !== 1 ? \`<a href="#" class="action-link delete" onclick="deleteCategory(\${cat.id}); return false;">Delete</a>\` : ''}
+                      <a href="#" class="action-link" onclick="editCategory(\${cat.id}); return false;">\${i18n.t('common.edit')}</a>
+                      \${cat.id !== 1 ? \`<a href="#" class="action-link delete" onclick="deleteCategory(\${cat.id}); return false;">\${i18n.t('common.delete')}</a>\` : ''}
                     </td>
                   </tr>
                 \`).join('')}
@@ -1813,16 +2085,16 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load categories:', error);
+        console.error('加载失败 categories:', error);
       }
     }
 
-    async function fetchCategories() {
+    async function fetch分类() {
       const response = await fetch(API_BASE + '/categories?per_page=100');
       return await response.json();
     }
 
-    async function fetchTags() {
+    async function fetch标签() {
       const response = await fetch(API_BASE + '/tags?per_page=100');
       return await response.json();
     }
@@ -1833,23 +2105,23 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Create New Category</h2>
+            <h2>创建新分类</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-category-form">
             <div class="form-group">
-              <label>Name *</label>
+              <label>名称 *</label>
               <input type="text" name="name" required>
             </div>
             <div class="form-group">
-              <label>Slug</label>
+              <label>别名</label>
               <input type="text" name="slug">
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 100px;"></textarea>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Create Category</button>
+            <button type="submit" class="button" style="width: 100%;">创建分类</button>
           </form>
         </div>
       \`;
@@ -1875,10 +2147,10 @@ app.get('/wp-admin', (c) => {
 
           if (response.ok) {
             modal.remove();
-            await loadCategories();
+            await load分类();
           }
         } catch (error) {
-          console.error('Failed to create category:', error);
+          console.error('创建失败 category:', error);
         }
       });
     };
@@ -1891,23 +2163,23 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Category</h2>
+            <h2>编辑分类</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-category-form">
             <div class="form-group">
-              <label>Name *</label>
+              <label>名称 *</label>
               <input type="text" name="name" value="\${cat.name}" required>
             </div>
             <div class="form-group">
-              <label>Slug</label>
+              <label>别名</label>
               <input type="text" name="slug" value="\${cat.slug}">
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 100px;">\${cat.description}</textarea>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Update Category</button>
+            <button type="submit" class="button" style="width: 100%;">更新分类</button>
           </form>
         </div>
       \`;
@@ -1933,10 +2205,10 @@ app.get('/wp-admin', (c) => {
 
           if (response.ok) {
             modal.remove();
-            await loadCategories();
+            await load分类();
           }
         } catch (error) {
-          console.error('Failed to update category:', error);
+          console.error('更新失败 category:', error);
         }
       });
     };
@@ -1949,36 +2221,36 @@ app.get('/wp-admin', (c) => {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + authToken }
         });
-        await loadCategories();
+        await load分类();
       } catch (error) {
-        console.error('Failed to delete category:', error);
+        console.error('删除失败 category:', error);
       }
     };
 
-    // Tags Management
-    async function showTags() {
-      renderLayout('Tags');
+    // 标签 Management
+    async function show标签() {
+      renderLayout(i18n.t('nav.tags'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>Tags</h2>
-          <button class="button" onclick="showCreateTagModal()">Add New Tag</button>
+          <h2>\${i18n.t('tags.title')}</h2>
+          <button class="button" onclick="showCreateTagModal()">\${i18n.t('tags.addNew')}</button>
         </div>
         <div id="tags-list"></div>
       \`;
 
-      await loadTagsList();
+      await load标签List();
     }
 
-    async function loadTagsList() {
+    async function load标签List() {
       try {
         const response = await fetch(API_BASE + '/tags?per_page=100');
         const tags = await response.json();
 
         const container = document.getElementById('tags-list');
         if (tags.length === 0) {
-          container.innerHTML = '<div class="empty-state">No tags yet.</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('tags.noTags')}</div>\`;
           return;
         }
 
@@ -1987,10 +2259,10 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Slug</th>
-                  <th>Count</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('common.name')}</th>
+                  <th>\${i18n.t('common.slug')}</th>
+                  <th>\${i18n.t('common.count')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2000,8 +2272,8 @@ app.get('/wp-admin', (c) => {
                     <td>\${tag.slug}</td>
                     <td>\${tag.count}</td>
                     <td class="actions">
-                      <a href="#" class="action-link" onclick="editTag(\${tag.id}); return false;">Edit</a>
-                      <a href="#" class="action-link delete" onclick="deleteTag(\${tag.id}); return false;">Delete</a>
+                      <a href="#" class="action-link" onclick="editTag(\${tag.id}); return false;">\${i18n.t('common.edit')}</a>
+                      <a href="#" class="action-link delete" onclick="deleteTag(\${tag.id}); return false;">\${i18n.t('common.delete')}</a>
                     </td>
                   </tr>
                 \`).join('')}
@@ -2010,7 +2282,7 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load tags:', error);
+        console.error('加载失败 tags:', error);
       }
     }
 
@@ -2020,23 +2292,23 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Create New Tag</h2>
+            <h2>创建新标签</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-tag-form">
             <div class="form-group">
-              <label>Name *</label>
+              <label>名称 *</label>
               <input type="text" name="name" required>
             </div>
             <div class="form-group">
-              <label>Slug</label>
+              <label>别名</label>
               <input type="text" name="slug">
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 100px;"></textarea>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Create Tag</button>
+            <button type="submit" class="button" style="width: 100%;">创建标签</button>
           </form>
         </div>
       \`;
@@ -2062,10 +2334,10 @@ app.get('/wp-admin', (c) => {
 
           if (response.ok) {
             modal.remove();
-            await loadTagsList();
+            await load标签List();
           }
         } catch (error) {
-          console.error('Failed to create tag:', error);
+          console.error('创建失败 tag:', error);
         }
       });
     };
@@ -2078,23 +2350,23 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Tag</h2>
+            <h2>编辑标签</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-tag-form">
             <div class="form-group">
-              <label>Name *</label>
+              <label>名称 *</label>
               <input type="text" name="name" value="\${tag.name}" required>
             </div>
             <div class="form-group">
-              <label>Slug</label>
+              <label>别名</label>
               <input type="text" name="slug" value="\${tag.slug}">
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 100px;">\${tag.description}</textarea>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Update Tag</button>
+            <button type="submit" class="button" style="width: 100%;">更新标签</button>
           </form>
         </div>
       \`;
@@ -2120,37 +2392,37 @@ app.get('/wp-admin', (c) => {
 
           if (response.ok) {
             modal.remove();
-            await loadTagsList();
+            await load标签List();
           }
         } catch (error) {
-          console.error('Failed to update tag:', error);
+          console.error('更新失败 tag:', error);
         }
       });
     };
 
     window.deleteTag = async function(id) {
-      if (!confirm('Are you sure you want to delete this tag?')) return;
+      if (!confirm('确定要删除 this tag?')) return;
 
       try {
         await fetch(API_BASE + '/tags/' + id + '?force=true', {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + authToken }
         });
-        await loadTagsList();
+        await load标签List();
       } catch (error) {
-        console.error('Failed to delete tag:', error);
+        console.error('删除失败 tag:', error);
       }
     };
 
     // Media Management
     async function showMedia() {
-      renderLayout('Media Library');
+      renderLayout(i18n.t('nav.media'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
           <h2>Media Library</h2>
-          <button class="button" onclick="showUploadMediaModal()">Upload New</button>
+          <button class="button" onclick="show上传MediaModal()">上传 New</button>
         </div>
         <div id="media-grid"></div>
       \`;
@@ -2167,22 +2439,22 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('media-grid');
         if (mediaItems.length === 0) {
-          container.innerHTML = '<div class="empty-state">No media files yet. Upload your first file!</div>';
+          container.innerHTML = '<div class="empty-state">No media files yet. 上传 your first file!</div>';
           return;
         }
 
         container.innerHTML = \`
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
             \${mediaItems.map(media => \`
-              <div class="media-item" style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; cursor: pointer;" onclick="showMediaDetails(\${media.id})">
-                <div style="height: 150px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              <div class="media-item" style="border: 1px solid #ddd; border-radius: 4px; overflow: 隐藏; cursor: pointer;" onclick="showMediaDetails(\${media.id})">
+                <div style="height: 150px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: 隐藏;">
                   \${media.media_type === 'image'
                     ? \`<img src="\${media.source_url}" alt="\${media.alt_text}" style="max-width: 100%; max-height: 100%; object-fit: cover;">\`
                     : \`<div style="padding: 20px; text-align: center; color: #646970;">\${media.mime_type}</div>\`
                   }
                 </div>
                 <div style="padding: 10px;">
-                  <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">\${media.title.rendered}</div>
+                  <div style="font-size: 13px; font-weight: 500; white-space: nowrap; overflow: 隐藏; text-overflow: ellipsis;">\${media.title.rendered}</div>
                   <div style="font-size: 12px; color: #646970;">\${formatFileSize(media.media_details.filesize)}</div>
                 </div>
               </div>
@@ -2190,7 +2462,7 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load media:', error);
+        console.error('加载失败 media:', error);
       }
     }
 
@@ -2200,29 +2472,29 @@ app.get('/wp-admin', (c) => {
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    window.showUploadMediaModal = function() {
+    window.show上传MediaModal = function() {
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Upload Media</h2>
+            <h2>上传媒体</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="upload-media-form" enctype="multipart/form-data">
             <div class="form-group">
-              <label>Select File *</label>
+              <label>选择文件 *</label>
               <input type="file" id="media-file" name="file" accept="image/*,video/*,.pdf" required style="padding: 5px;">
             </div>
             <div id="file-preview" style="margin: 15px 0; display: none;">
               <img id="preview-image" style="max-width: 100%; max-height: 300px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             <div class="form-group">
-              <label>Title</label>
+              <label>标题</label>
               <input type="text" id="media-title" name="title" placeholder="Auto-filled from filename">
             </div>
             <div class="form-group">
-              <label>Alt Text (for images)</label>
+              <label>替代文本 (for images)</label>
               <input type="text" name="alt_text">
             </div>
             <div class="form-group">
@@ -2230,16 +2502,16 @@ app.get('/wp-admin', (c) => {
               <textarea name="caption" style="min-height: 80px;"></textarea>
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 80px;"></textarea>
             </div>
-            <div id="upload-progress" class="hidden" style="margin: 15px 0;">
-              <div style="background: #f0f0f1; border-radius: 4px; overflow: hidden;">
+            <div id="upload-progress" class="隐藏" style="margin: 15px 0;">
+              <div style="background: #f0f0f1; border-radius: 4px; overflow: 隐藏;">
                 <div id="progress-bar" style="background: #2271b1; height: 20px; width: 0%; transition: width 0.3s;"></div>
               </div>
-              <div id="progress-text" style="text-align: center; margin-top: 5px; font-size: 13px; color: #646970;">Uploading...</div>
+              <div id="progress-text" style="text-align: center; margin-top: 5px; font-size: 13px; color: #646970;">上传ing...</div>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Upload File</button>
+            <button type="submit" class="button" style="width: 100%;">上传 File</button>
           </form>
         </div>
       \`;
@@ -2272,7 +2544,7 @@ app.get('/wp-admin', (c) => {
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
 
-        progressDiv.classList.remove('hidden');
+        progressDiv.classList.remove('隐藏');
         progressBar.style.width = '50%';
 
         try {
@@ -2287,20 +2559,20 @@ app.get('/wp-admin', (c) => {
           progressBar.style.width = '100%';
 
           if (response.ok) {
-            progressText.textContent = 'Upload complete!';
+            progressText.textContent = '上传 complete!';
             setTimeout(() => {
               modal.remove();
               showMedia();
             }, 500);
           } else {
             const error = await response.json();
-            showError('Upload failed: ' + error.message);
-            progressDiv.classList.add('hidden');
+            showError('上传 failed: ' + error.message);
+            progressDiv.classList.add('隐藏');
           }
         } catch (error) {
           console.error('Failed to upload media:', error);
-          showError('Upload failed. Please try again.');
-          progressDiv.classList.add('hidden');
+          showError('上传 failed. Please try again.');
+          progressDiv.classList.add('隐藏');
         }
       });
     };
@@ -2332,10 +2604,10 @@ app.get('/wp-admin', (c) => {
                   <strong>URL:</strong><br>
                   <input type="text" readonly value="\${media.source_url}" style="width: 100%; padding: 5px; font-size: 12px;" onclick="this.select()">
                 </div>
-                <div style="margin-bottom: 10px;"><strong>Title:</strong> \${media.title.rendered}</div>
+                <div style="margin-bottom: 10px;"><strong>标题:</strong> \${media.title.rendered}</div>
                 <div style="margin-bottom: 10px;"><strong>File type:</strong> \${media.mime_type}</div>
                 <div style="margin-bottom: 10px;"><strong>File size:</strong> \${formatFileSize(media.media_details.filesize)}</div>
-                <div style="margin-bottom: 10px;"><strong>Uploaded:</strong> \${new Date(media.date).toLocaleDateString()}</div>
+                <div style="margin-bottom: 10px;"><strong>上传ed:</strong> \${new Date(media.date).toLocaleDateString()}</div>
                 \${media.media_details.width ? \`<div style="margin-bottom: 10px;"><strong>Dimensions:</strong> \${media.media_details.width} × \${media.media_details.height}</div>\` : ''}
                 <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
                   <button class="button button-secondary" onclick="copyMediaUrl('\${media.source_url}')" style="margin-right: 8px;">Copy URL</button>
@@ -2347,7 +2619,7 @@ app.get('/wp-admin', (c) => {
         \`;
         document.body.appendChild(modal);
       } catch (error) {
-        console.error('Failed to load media details:', error);
+        console.error('加载失败 media details:', error);
       }
     };
 
@@ -2369,8 +2641,8 @@ app.get('/wp-admin', (c) => {
         document.querySelectorAll('.modal').forEach(m => m.remove());
         showMedia();
       } catch (error) {
-        console.error('Failed to delete media:', error);
-        showError('Failed to delete media.');
+        console.error('删除失败 media:', error);
+        showError('删除失败 media.');
       }
     };
 
@@ -2384,7 +2656,7 @@ app.get('/wp-admin', (c) => {
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <div style="margin-bottom: 15px;">
-            <button class="button" onclick="showUploadMediaModalInline()">Upload New File</button>
+            <button class="button" onclick="show上传MediaModalInline()">上传 New File</button>
           </div>
           <div id="media-library-grid" style="max-height: 60vh; overflow-y: auto;"></div>
         </div>
@@ -2403,32 +2675,32 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('media-library-grid');
         if (mediaItems.length === 0) {
-          container.innerHTML = '<div class="empty-state">No media files yet. Upload your first file!</div>';
+          container.innerHTML = '<div class="empty-state">No media files yet. 上传 your first file!</div>';
           return;
         }
 
         container.innerHTML = \`
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
             \${mediaItems.map(media => \`
-              <div class="media-item" style="border: 2px solid #ddd; border-radius: 4px; overflow: hidden; cursor: pointer; transition: border-color 0.2s;" onclick="insertMediaIntoPost('\${media.source_url}', '\${media.title.rendered}', '\${mode}')" onmouseover="this.style.borderColor='#2271b1'" onmouseout="this.style.borderColor='#ddd'">
-                <div style="height: 120px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              <div class="media-item" style="border: 2px solid #ddd; border-radius: 4px; overflow: 隐藏; cursor: pointer; transition: border-color 0.2s;" onclick="insertMediaIntoPost('\${media.source_url}', '\${media.title.rendered}', '\${mode}')" onmouseover="this.style.borderColor='#2271b1'" onmouseout="this.style.borderColor='#ddd'">
+                <div style="height: 120px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: 隐藏;">
                   \${media.media_type === 'image'
                     ? \`<img src="\${media.source_url}" alt="\${media.alt_text}" style="max-width: 100%; max-height: 100%; object-fit: cover;">\`
                     : \`<div style="padding: 10px; text-align: center; font-size: 11px; color: #646970;">\${media.mime_type}</div>\`
                   }
                 </div>
-                <div style="padding: 8px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${media.title.rendered}">\${media.title.rendered}</div>
+                <div style="padding: 8px; font-size: 12px; white-space: nowrap; overflow: 隐藏; text-overflow: ellipsis;" title="\${media.title.rendered}">\${media.title.rendered}</div>
               </div>
             \`).join('')}
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load media library:', error);
+        console.error('加载失败 media library:', error);
       }
     }
 
-    window.showUploadMediaModalInline = function() {
-      showUploadMediaModal();
+    window.show上传MediaModalInline = function() {
+      show上传MediaModal();
     };
 
     window.insertMediaIntoPost = function(url, title, mode) {
@@ -2486,7 +2758,7 @@ app.get('/wp-admin', (c) => {
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <div style="margin-bottom: 15px;">
-            <button class="button" onclick="showUploadMediaModalInline()">Upload New File</button>
+            <button class="button" onclick="show上传MediaModalInline()">上传 New File</button>
           </div>
           <div id="featured-image-library-grid" style="max-height: 60vh; overflow-y: auto;"></div>
         </div>
@@ -2505,7 +2777,7 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('featured-image-library-grid');
         if (mediaItems.length === 0) {
-          container.innerHTML = '<div class="empty-state">No media files yet. Upload your first file!</div>';
+          container.innerHTML = '<div class="empty-state">No media files yet. 上传 your first file!</div>';
           return;
         }
 
@@ -2513,24 +2785,24 @@ app.get('/wp-admin', (c) => {
         const imageItems = mediaItems.filter(media => media.media_type === 'image');
 
         if (imageItems.length === 0) {
-          container.innerHTML = '<div class="empty-state">No image files found. Upload an image to use as featured image.</div>';
+          container.innerHTML = '<div class="empty-state">No image files found. 上传 an image to use as featured image.</div>';
           return;
         }
 
         container.innerHTML = \`
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
             \${imageItems.map(media => \`
-              <div class="media-item" style="border: 2px solid #ddd; border-radius: 4px; overflow: hidden; cursor: pointer; transition: border-color 0.2s;" onclick="selectFeaturedImage('\${media.source_url}', '\${mode}')" onmouseover="this.style.borderColor='#2271b1'" onmouseout="this.style.borderColor='#ddd'">
-                <div style="height: 120px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              <div class="media-item" style="border: 2px solid #ddd; border-radius: 4px; overflow: 隐藏; cursor: pointer; transition: border-color 0.2s;" onclick="selectFeaturedImage('\${media.source_url}', '\${mode}')" onmouseover="this.style.borderColor='#2271b1'" onmouseout="this.style.borderColor='#ddd'">
+                <div style="height: 120px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: 隐藏;">
                   <img src="\${media.source_url}" alt="\${media.alt_text}" style="max-width: 100%; max-height: 100%; object-fit: cover;">
                 </div>
-                <div style="padding: 8px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${media.title.rendered}">\${media.title.rendered}</div>
+                <div style="padding: 8px; font-size: 12px; white-space: nowrap; overflow: 隐藏; text-overflow: ellipsis;" title="\${media.title.rendered}">\${media.title.rendered}</div>
               </div>
             \`).join('')}
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load media library:', error);
+        console.error('加载失败 media library:', error);
       }
     }
 
@@ -2555,13 +2827,13 @@ app.get('/wp-admin', (c) => {
 
     // Users Management
     async function showUsers() {
-      renderLayout('Users');
+      renderLayout(i18n.t('nav.users'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>All Users</h2>
-          \${currentUser.role === 'administrator' ? '<button class="button" onclick="showCreateUserModal()">Add New User</button>' : ''}
+          <h2>\${i18n.t('users.allUsers')}</h2>
+          \${currentUser.role === 'administrator' ? \`<button class="button" onclick="showCreateUserModal()">\${i18n.t('users.addNew')}</button>\` : ''}
         </div>
         <div id="users-list"></div>
       \`;
@@ -2578,7 +2850,7 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('users-list');
         if (users.length === 0) {
-          container.innerHTML = '<div class="empty-state">No users found.</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('users.noUsers')}</div>\`;
           return;
         }
 
@@ -2587,12 +2859,12 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Username</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Registered</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('users.username')}</th>
+                  <th>\${i18n.t('common.name')}</th>
+                  <th>\${i18n.t('users.email')}</th>
+                  <th>\${i18n.t('users.role')}</th>
+                  <th>\${i18n.t('users.registered')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2601,11 +2873,11 @@ app.get('/wp-admin', (c) => {
                     <td><strong>\${user.slug}</strong></td>
                     <td>\${user.name}</td>
                     <td>\${user.email || 'N/A'}</td>
-                    <td>\${user.roles ? user.roles[0] : 'N/A'}</td>
+                    <td>\${user.roles ? translateRole(user.roles[0]) : 'N/A'}</td>
                     <td>\${new Date(user.registered_date).toLocaleDateString()}</td>
                     <td class="actions">
-                      <a href="#" class="action-link" onclick="editUser(\${user.id}); return false;">Edit</a>
-                      \${currentUser.role === 'administrator' && user.id !== currentUser.id ? \`<a href="#" class="action-link delete" onclick="deleteUser(\${user.id}); return false;">Delete</a>\` : ''}
+                      <a href="#" class="action-link" onclick="editUser(\${user.id}); return false;">\${i18n.t('common.edit')}</a>
+                      \${currentUser.role === 'administrator' && user.id !== currentUser.id ? \`<a href="#" class="action-link delete" onclick="deleteUser(\${user.id}); return false;">\${i18n.t('common.delete')}</a>\` : ''}
                     </td>
                   </tr>
                 \`).join('')}
@@ -2614,7 +2886,7 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load users:', error);
+        console.error('加载失败 users:', error);
       }
     }
 
@@ -2624,37 +2896,37 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Create New User</h2>
+            <h2>创建新用户</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-user-form">
             <div class="form-group">
-              <label>Username *</label>
+              <label>用户名 *</label>
               <input type="text" name="username" required>
             </div>
             <div class="form-group">
-              <label>Email *</label>
+              <label>邮箱 *</label>
               <input type="email" name="email" required>
             </div>
             <div class="form-group">
-              <label>Password *</label>
+              <label>密码 *</label>
               <input type="password" name="password" required minlength="6">
             </div>
             <div class="form-group">
-              <label>Display Name</label>
+              <label>显示名称</label>
               <input type="text" name="display_name">
             </div>
             <div class="form-group">
-              <label>Role</label>
+              <label>角色</label>
               <select name="role">
-                <option value="subscriber">Subscriber</option>
-                <option value="contributor">Contributor</option>
-                <option value="author">Author</option>
-                <option value="editor">Editor</option>
-                <option value="administrator">Administrator</option>
+                <option value="subscriber">订阅者</option>
+                <option value="contributor">贡献者</option>
+                <option value="author">作者</option>
+                <option value="editor">编辑</option>
+                <option value="administrator">管理员</option>
               </select>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Create User</button>
+            <button type="submit" class="button" style="width: 100%;">创建用户</button>
           </form>
         </div>
       \`;
@@ -2685,11 +2957,11 @@ app.get('/wp-admin', (c) => {
             await loadUsersList();
           } else {
             const error = await response.json();
-            showError('Failed to create user: ' + error.message);
+            showError('创建失败 user: ' + error.message);
           }
         } catch (error) {
-          console.error('Failed to create user:', error);
-          showError('Failed to create user.');
+          console.error('创建失败 user:', error);
+          showError('创建失败 user.');
         }
       });
     };
@@ -2707,24 +2979,24 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit User</h2>
+            <h2>编辑用户</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-user-form">
             <div class="form-group">
-              <label>Username</label>
+              <label>用户名</label>
               <input type="text" value="\${user.slug}" disabled style="background: #f0f0f1;">
             </div>
             <div class="form-group">
-              <label>Email *</label>
+              <label>邮箱 *</label>
               <input type="email" name="email" value="\${user.email || ''}" required>
             </div>
             <div class="form-group">
-              <label>Display Name</label>
+              <label>显示名称</label>
               <input type="text" name="display_name" value="\${user.name}">
             </div>
             <div class="form-group">
-              <label>Bio</label>
+              <label>简介</label>
               <textarea name="bio" style="min-height: 100px;">\${user.description || ''}</textarea>
             </div>
             <div class="form-group">
@@ -2733,7 +3005,7 @@ app.get('/wp-admin', (c) => {
             </div>
             \${canEditRole ? \`
               <div class="form-group">
-                <label>Role</label>
+                <label>角色</label>
                 <select name="role">
                   <option value="subscriber" \${user.roles && user.roles[0] === 'subscriber' ? 'selected' : ''}>Subscriber</option>
                   <option value="contributor" \${user.roles && user.roles[0] === 'contributor' ? 'selected' : ''}>Contributor</option>
@@ -2743,7 +3015,7 @@ app.get('/wp-admin', (c) => {
                 </select>
               </div>
             \` : ''}
-            <button type="submit" class="button" style="width: 100%;">Update User</button>
+            <button type="submit" class="button" style="width: 100%;">更新用户</button>
           </form>
         </div>
       \`;
@@ -2788,17 +3060,17 @@ app.get('/wp-admin', (c) => {
             }
           } else {
             const error = await response.json();
-            showError('Failed to update user: ' + error.message);
+            showError('更新失败 user: ' + error.message);
           }
         } catch (error) {
-          console.error('Failed to update user:', error);
-          showError('Failed to update user.');
+          console.error('更新失败 user:', error);
+          showError('更新失败 user.');
         }
       });
     };
 
     window.deleteUser = async function(id) {
-      if (!confirm('Are you sure you want to delete this user? Their posts will also be deleted.')) return;
+      if (!confirm('确定要删除 this user? Their posts will also be deleted.')) return;
 
       try {
         await fetch(API_BASE + '/users/' + id + '?force=true', {
@@ -2807,21 +3079,21 @@ app.get('/wp-admin', (c) => {
         });
         await loadUsersList();
       } catch (error) {
-        console.error('Failed to delete user:', error);
-        showError('Failed to delete user.');
+        console.error('删除失败 user:', error);
+        showError('删除失败 user.');
       }
     };
 
     // Links Management
     async function showLinks() {
-      renderLayout('Links');
+      renderLayout(i18n.t('nav.links'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>Friendly Links</h2>
-          <button class="button" onclick="showCreateLinkModal()">Add New Link</button>
-          <button class="button button-secondary" onclick="showLinkCategories()" style="margin-left: 10px;">Manage Categories</button>
+          <h2>\${i18n.t('links.title')}</h2>
+          <button class="button" onclick="showCreateLinkModal()">\${i18n.t('links.addNew')}</button>
+          <button class="button button-secondary" onclick="showLink分类()" style="margin-left: 10px;">管理分类</button>
         </div>
         <div id="links-list"></div>
       \`;
@@ -2838,7 +3110,7 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('links-list');
         if (links.length === 0) {
-          container.innerHTML = '<div class="empty-state">No links yet. Add your first friendly link!</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('links.noLinks')}</div>\`;
           return;
         }
 
@@ -2847,12 +3119,12 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>URL</th>
-                  <th>Category</th>
+                  <th>\${i18n.t('common.name')}</th>
+                  <th>\${i18n.t('links.siteUrl')}</th>
+                  <th>\${i18n.t('common.categories')}</th>
                   <th>Description</th>
                   <th>Sort</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2866,11 +3138,11 @@ app.get('/wp-admin', (c) => {
                     </td>
                     <td><a href="\${link.url}" target="_blank" style="color: #2271b1;">\${link.url}</a></td>
                     <td>\${link.category.name}</td>
-                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">\${link.description || '-'}</td>
+                    <td style="max-width: 200px; overflow: 隐藏; text-overflow: ellipsis; white-space: nowrap;">\${link.description || '-'}</td>
                     <td>\${link.sort_order}</td>
                     <td class="actions">
-                      <a href="#" class="action-link" onclick="editLink(\${link.id}); return false;">Edit</a>
-                      <a href="#" class="action-link delete" onclick="deleteLink(\${link.id}); return false;">Delete</a>
+                      <a href="#" class="action-link" onclick="editLink(\${link.id}); return false;">\${i18n.t('common.edit')}</a>
+                      <a href="#" class="action-link delete" onclick="deleteLink(\${link.id}); return false;">\${i18n.t('common.delete')}</a>
                     </td>
                   </tr>
                 \`).join('')}
@@ -2879,36 +3151,36 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load links:', error);
+        console.error('加载失败 links:', error);
       }
     }
 
     window.showCreateLinkModal = async function() {
-      const categories = await fetchLinkCategories();
+      const categories = await fetchLink分类();
 
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Add New Link</h2>
+            <h2>添加链接</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-link-form">
             <div class="form-group">
-              <label>Site Name *</label>
+              <label>网站名称 *</label>
               <input type="text" name="name" required>
             </div>
             <div class="form-group">
-              <label>Site URL *</label>
+              <label>网站地址 *</label>
               <input type="url" name="url" placeholder="https://example.com" required>
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 80px;" placeholder="Brief description of the site"></textarea>
             </div>
             <div class="form-group">
-              <label>Avatar URL</label>
+              <label>头像 URL</label>
               <input type="url" name="avatar" placeholder="https://example.com/avatar.jpg">
               <small style="color: #646970; display: block; margin-top: 5px;">Recommended: 100x100px</small>
             </div>
@@ -2921,21 +3193,21 @@ app.get('/wp-admin', (c) => {
               </select>
             </div>
             <div class="form-group">
-              <label>Target</label>
+              <label>打开方式</label>
               <select name="target">
                 <option value="_blank">New Window (_blank)</option>
                 <option value="_self">Same Window (_self)</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Sort Order</label>
+              <label>排序</label>
               <input type="number" name="sort_order" value="0" min="0">
-              <small style="color: #646970; display: block; margin-top: 5px;">Lower numbers appear first</small>
+              <small style="color: #646970; display: block; margin-top: 5px;">数字越小排序越靠前</small>
             </div>
             <div class="form-group">
               <label>
                 <input type="checkbox" name="visible" value="yes" checked style="width: auto; margin-right: 8px;">
-                Visible
+                可见
               </label>
             </div>
             <button type="submit" class="button" style="width: 100%;">Add Link</button>
@@ -2972,11 +3244,11 @@ app.get('/wp-admin', (c) => {
             await loadLinksList();
           } else {
             const error = await response.json();
-            showError('Failed to create link: ' + error.message);
+            showError('创建失败 link: ' + error.message);
           }
         } catch (error) {
-          console.error('Failed to create link:', error);
-          showError('Failed to create link.');
+          console.error('创建失败 link:', error);
+          showError('创建失败 link.');
         }
       });
     };
@@ -2986,31 +3258,31 @@ app.get('/wp-admin', (c) => {
         headers: { 'Authorization': 'Bearer ' + authToken }
       }).then(r => r.json());
 
-      const categories = await fetchLinkCategories();
+      const categories = await fetchLink分类();
 
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Link</h2>
+            <h2>编辑链接</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-link-form">
             <div class="form-group">
-              <label>Site Name *</label>
+              <label>网站名称 *</label>
               <input type="text" name="name" value="\${link.name}" required>
             </div>
             <div class="form-group">
-              <label>Site URL *</label>
+              <label>网站地址 *</label>
               <input type="url" name="url" value="\${link.url}" required>
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 80px;">\${link.description || ''}</textarea>
             </div>
             <div class="form-group">
-              <label>Avatar URL</label>
+              <label>头像 URL</label>
               <input type="url" name="avatar" value="\${link.avatar || ''}">
               <small style="color: #646970; display: block; margin-top: 5px;">Recommended: 100x100px</small>
             </div>
@@ -3023,24 +3295,24 @@ app.get('/wp-admin', (c) => {
               </select>
             </div>
             <div class="form-group">
-              <label>Target</label>
+              <label>打开方式</label>
               <select name="target">
                 <option value="_blank" \${link.target === '_blank' ? 'selected' : ''}>New Window (_blank)</option>
                 <option value="_self" \${link.target === '_self' ? 'selected' : ''}>Same Window (_self)</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Sort Order</label>
+              <label>排序</label>
               <input type="number" name="sort_order" value="\${link.sort_order}" min="0">
-              <small style="color: #646970; display: block; margin-top: 5px;">Lower numbers appear first</small>
+              <small style="color: #646970; display: block; margin-top: 5px;">数字越小排序越靠前</small>
             </div>
             <div class="form-group">
               <label>
                 <input type="checkbox" name="visible" value="yes" \${link.visible === 'yes' ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                Visible
+                可见
               </label>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Update Link</button>
+            <button type="submit" class="button" style="width: 100%;">更新链接</button>
           </form>
         </div>
       \`;
@@ -3074,17 +3346,17 @@ app.get('/wp-admin', (c) => {
             await loadLinksList();
           } else {
             const error = await response.json();
-            showError('Failed to update link: ' + error.message);
+            showError('更新失败 link: ' + error.message);
           }
         } catch (error) {
-          console.error('Failed to update link:', error);
-          showError('Failed to update link.');
+          console.error('更新失败 link:', error);
+          showError('更新失败 link.');
         }
       });
     };
 
     window.deleteLink = async function(id) {
-      if (!confirm('Are you sure you want to delete this link?')) return;
+      if (!confirm('确定要删除 this link?')) return;
 
       try {
         await fetch(API_BASE + '/links/' + id, {
@@ -3093,23 +3365,23 @@ app.get('/wp-admin', (c) => {
         });
         await loadLinksList();
       } catch (error) {
-        console.error('Failed to delete link:', error);
-        showError('Failed to delete link.');
+        console.error('删除失败 link:', error);
+        showError('删除失败 link.');
       }
     };
 
-    async function fetchLinkCategories() {
+    async function fetchLink分类() {
       const response = await fetch(API_BASE + '/link-categories');
       return await response.json();
     }
 
-    window.showLinkCategories = async function() {
+    window.showLink分类 = async function() {
       const modal = document.createElement('div');
       modal.className = 'modal';
       modal.innerHTML = \`
         <div class="modal-content" style="max-width: 800px;">
           <div class="modal-header">
-            <h2>Link Categories</h2>
+            <h2>Link 分类</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <div style="margin-bottom: 20px;">
@@ -3120,10 +3392,10 @@ app.get('/wp-admin', (c) => {
       \`;
       document.body.appendChild(modal);
 
-      await loadLinkCategoriesList();
+      await loadLink分类List();
     };
 
-    async function loadLinkCategoriesList() {
+    async function loadLink分类List() {
       try {
         const response = await fetch(API_BASE + '/link-categories');
         const categories = await response.json();
@@ -3134,10 +3406,10 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Slug</th>
-                  <th>Count</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('common.name')}</th>
+                  <th>\${i18n.t('common.slug')}</th>
+                  <th>\${i18n.t('common.count')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -3147,8 +3419,8 @@ app.get('/wp-admin', (c) => {
                     <td>\${cat.slug}</td>
                     <td>\${cat.count}</td>
                     <td class="actions">
-                      <a href="#" class="action-link" onclick="editLinkCategory(\${cat.id}); return false;">Edit</a>
-                      <a href="#" class="action-link delete" onclick="deleteLinkCategory(\${cat.id}); return false;">Delete</a>
+                      <a href="#" class="action-link" onclick="editLinkCategory(\${cat.id}); return false;">\${i18n.t('common.edit')}</a>
+                      <a href="#" class="action-link delete" onclick="deleteLinkCategory(\${cat.id}); return false;">\${i18n.t('common.delete')}</a>
                     </td>
                   </tr>
                 \`).join('')}
@@ -3157,7 +3429,7 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load link categories:', error);
+        console.error('加载失败 link categories:', error);
       }
     }
 
@@ -3167,23 +3439,23 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Add Link Category</h2>
+            <h2>Add 链接分类</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-link-category-form">
             <div class="form-group">
-              <label>Name *</label>
+              <label>名称 *</label>
               <input type="text" name="name" required>
             </div>
             <div class="form-group">
-              <label>Slug</label>
+              <label>别名</label>
               <input type="text" name="slug" placeholder="auto-generated">
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 80px;"></textarea>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Create Category</button>
+            <button type="submit" class="button" style="width: 100%;">创建分类</button>
           </form>
         </div>
       \`;
@@ -3209,10 +3481,10 @@ app.get('/wp-admin', (c) => {
 
           if (response.ok) {
             modal.remove();
-            await loadLinkCategoriesList();
+            await loadLink分类List();
           }
         } catch (error) {
-          console.error('Failed to create link category:', error);
+          console.error('创建失败 link category:', error);
         }
       });
     };
@@ -3225,23 +3497,23 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Link Category</h2>
+            <h2>编辑链接 Category</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-link-category-form">
             <div class="form-group">
-              <label>Name *</label>
+              <label>名称 *</label>
               <input type="text" name="name" value="\${cat.name}" required>
             </div>
             <div class="form-group">
-              <label>Slug</label>
+              <label>别名</label>
               <input type="text" name="slug" value="\${cat.slug}">
             </div>
             <div class="form-group">
-              <label>Description</label>
+              <label>描述</label>
               <textarea name="description" style="min-height: 80px;">\${cat.description || ''}</textarea>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Update Category</button>
+            <button type="submit" class="button" style="width: 100%;">更新分类</button>
           </form>
         </div>
       \`;
@@ -3267,10 +3539,10 @@ app.get('/wp-admin', (c) => {
 
           if (response.ok) {
             modal.remove();
-            await loadLinkCategoriesList();
+            await loadLink分类List();
           }
         } catch (error) {
-          console.error('Failed to update link category:', error);
+          console.error('更新失败 link category:', error);
         }
       });
     };
@@ -3283,37 +3555,39 @@ app.get('/wp-admin', (c) => {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + authToken }
         });
-        await loadLinkCategoriesList();
+        await loadLink分类List();
       } catch (error) {
-        console.error('Failed to delete link category:', error);
+        console.error('删除失败 link category:', error);
       }
     };
 
     function renderLayout(title) {
       const app = document.getElementById('app');
       app.innerHTML = \`
+        <div class="sidebar-overlay" onclick="toggleMobileMenu()"></div>
         <div class="sidebar">
           <div class="sidebar-header">${c.env.SITE_NAME || 'CFBlog'}</div>
           <ul class="sidebar-menu">
-            <li><a href="#" data-route="/" class="active">Dashboard</a></li>
-            <li><a href="#" data-route="/posts">Posts</a></li>
-            <li><a href="#" data-route="/pages">Pages</a></li>
-            <li><a href="#" data-route="/moments">Moments</a></li>
-            <li><a href="#" data-route="/categories">Categories</a></li>
-            <li><a href="#" data-route="/tags">Tags</a></li>
-            <li><a href="#" data-route="/media">Media</a></li>
-            <li><a href="#" data-route="/links">Links</a></li>
-            <li><a href="#" data-route="/comments">Comments</a></li>
-            <li><a href="#" data-route="/users">Users</a></li>
-            <li><a href="#" data-route="/settings">Settings</a></li>
+            <li><a href="#" data-route="/" class="active">\${i18n.t('nav.dashboard')}</a></li>
+            <li><a href="#" data-route="/posts">\${i18n.t('nav.posts')}</a></li>
+            <li><a href="#" data-route="/pages">\${i18n.t('nav.pages')}</a></li>
+            <li><a href="#" data-route="/moments">\${i18n.t('nav.moments')}</a></li>
+            <li><a href="#" data-route="/categories">\${i18n.t('nav.categories')}</a></li>
+            <li><a href="#" data-route="/tags">\${i18n.t('nav.tags')}</a></li>
+            <li><a href="#" data-route="/media">\${i18n.t('nav.media')}</a></li>
+            <li><a href="#" data-route="/links">\${i18n.t('nav.links')}</a></li>
+            <li><a href="#" data-route="/comments">\${i18n.t('nav.comments')}</a></li>
+            <li><a href="#" data-route="/users">\${i18n.t('nav.users')}</a></li>
+            <li><a href="#" data-route="/settings">\${i18n.t('nav.settings')}</a></li>
           </ul>
         </div>
         <div class="main-content">
           <div class="top-bar">
+            <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">☰</button>
             <h1>\${title}</h1>
             <div class="user-info">
               <span>\${currentUser.name}</span>
-              <button class="button button-secondary" onclick="logout()">Logout</button>
+              <button class="button button-secondary" onclick="logout()">\${i18n.t('nav.logout')}</button>
             </div>
           </div>
           <div class="content-area"></div>
@@ -3325,25 +3599,44 @@ app.get('/wp-admin', (c) => {
         a.addEventListener('click', (e) => {
           e.preventDefault();
           navigate(a.getAttribute('data-route'));
+          // Close mobile menu after navigation
+          document.querySelector('.sidebar').classList.remove('open');
+          document.querySelector('.sidebar-overlay').classList.remove('show');
         });
       });
     }
 
+    // Mobile menu toggle function
+    window.toggleMobileMenu = function() {
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.querySelector('.sidebar-overlay');
+      sidebar.classList.toggle('open');
+      overlay.classList.toggle('show');
+    };
+
+    // Language switcher function
+    window.switchLanguage = function(lang) {
+      i18n.setLang(lang);
+      // Re-render current view
+      const currentRoute = Array.from(document.querySelectorAll('.sidebar-menu a')).find(a => a.classList.contains('active'))?.getAttribute('data-route') || '/';
+      navigate(currentRoute);
+    };
+
     // Comments Management
     async function showComments() {
-      renderLayout('Comments');
+      renderLayout(i18n.t('nav.comments'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>All Comments</h2>
+          <h2>\${i18n.t('comments.allComments')}</h2>
           <div>
             <select id="comment-status-filter" style="padding: 8px; margin-right: 10px;">
-              <option value="all" selected>All</option>
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-              <option value="spam">Spam</option>
-              <option value="trash">Trash</option>
+              <option value="all" selected>\${i18n.t('common.all')}</option>
+              <option value="approved">\${i18n.t('statusOptions.approved')}</option>
+              <option value="pending">\${i18n.t('statusOptions.pending')}</option>
+              <option value="spam">\${i18n.t('statusOptions.spam')}</option>
+              <option value="trash">\${i18n.t('statusOptions.trash')}</option>
             </select>
           </div>
         </div>
@@ -3366,7 +3659,7 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('comments-list');
         if (comments.length === 0) {
-          container.innerHTML = '<div class="empty-state">No comments found.</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('comments.noComments')}</div>\`;
           return;
         }
 
@@ -3378,9 +3671,9 @@ app.get('/wp-admin', (c) => {
               <td style="padding-left: \${indent + 10}px;">
                 \${depth > 0 ? '<span style="color: #2271b1; margin-right: 5px;">↳</span>' : ''}
                 <strong>\${comment.author_name}</strong><br>
-                <small style="color: #646970;">\${comment.author_email || 'No email'}</small>
+                <small style="color: #646970;">\${comment.author_email || i18n.t('comments.noEmail')}</small>
               </td>
-              <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+              <td style="max-width: 300px; overflow: 隐藏; text-overflow: ellipsis;">
                 \${comment.content.rendered.substring(0, 100)}...
               </td>
               <td>\${comment.post_title || 'N/A'}</td>
@@ -3390,16 +3683,16 @@ app.get('/wp-admin', (c) => {
                   comment.status === 'pending' ? '#dba617' :
                   comment.status === 'spam' ? '#d63638' : '#646970'
                 }; color: white; border-radius: 3px; font-size: 12px;">
-                  \${comment.status}
+                  \${translateStatus(comment.status)}
                 </span>
               </td>
               <td>\${new Date(comment.date).toLocaleDateString()}</td>
               <td class="actions">
-                \${comment.status !== 'approved' ? \`<a href="#" class="action-link" onclick="approveComment(\${comment.id}); return false;">Approve</a>\` : ''}
-                \${comment.status !== 'spam' ? \`<a href="#" class="action-link" onclick="markAsSpam(\${comment.id}); return false;">Spam</a>\` : ''}
-                <a href="#" class="action-link" onclick="replyToComment(\${comment.id}, \${comment.post_id}); return false;">Reply</a>
-                <a href="#" class="action-link" onclick="editComment(\${comment.id}); return false;">Edit</a>
-                <a href="#" class="action-link delete" onclick="deleteComment(\${comment.id}); return false;">Delete</a>
+                \${comment.status !== 'approved' ? \`<a href="#" class="action-link" onclick="approveComment(\${comment.id}); return false;">\${i18n.t('comments.approve')}</a>\` : ''}
+                \${comment.status !== 'spam' ? \`<a href="#" class="action-link" onclick="markAsSpam(\${comment.id}); return false;">\${i18n.t('comments.markAsSpam')}</a>\` : ''}
+                <a href="#" class="action-link" onclick="replyToComment(\${comment.id}, \${comment.post_id}); return false;">\${i18n.t('comments.reply')}</a>
+                <a href="#" class="action-link" onclick="editComment(\${comment.id}); return false;">\${i18n.t('common.edit')}</a>
+                <a href="#" class="action-link delete" onclick="deleteComment(\${comment.id}); return false;">\${i18n.t('common.delete')}</a>
               </td>
             </tr>
           \`;
@@ -3417,12 +3710,12 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Author</th>
-                  <th>Comment</th>
-                  <th>Post</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('comments.author')}</th>
+                  <th>\${i18n.t('comments.comment')}</th>
+                  <th>\${i18n.t('comments.post')}</th>
+                  <th>\${i18n.t('common.status')}</th>
+                  <th>\${i18n.t('common.date')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -3432,7 +3725,7 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load comments:', error);
+        console.error('加载失败 comments:', error);
       }
     }
 
@@ -3592,13 +3885,13 @@ app.get('/wp-admin', (c) => {
           const statusFilter = document.getElementById('comment-status-filter').value;
           await loadCommentsList(statusFilter);
         } catch (error) {
-          console.error('Failed to update comment:', error);
+          console.error('更新失败 comment:', error);
         }
       });
     };
 
     window.deleteComment = async function(id) {
-      if (!confirm('Are you sure you want to delete this comment permanently?')) return;
+      if (!confirm('确定要删除 this comment permanently?')) return;
 
       try {
         await fetch(API_BASE + '/comments/' + id + '?force=true', {
@@ -3608,19 +3901,19 @@ app.get('/wp-admin', (c) => {
         const statusFilter = document.getElementById('comment-status-filter').value;
         await loadCommentsList(statusFilter);
       } catch (error) {
-        console.error('Failed to delete comment:', error);
+        console.error('删除失败 comment:', error);
       }
     };
 
     // Pages Management
     async function showPages() {
-      renderLayout('Pages');
+      renderLayout(i18n.t('nav.pages'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>All Pages</h2>
-          <button class="button" onclick="showCreatePageModal()">Add New Page</button>
+          <h2>\${i18n.t('pages.allPages')}</h2>
+          <button class="button" onclick="showCreatePageModal()">\${i18n.t('pages.addNew')}</button>
         </div>
         <div id="pages-list"></div>
       \`;
@@ -3637,7 +3930,7 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('pages-list');
         if (pages.length === 0) {
-          container.innerHTML = '<div class="empty-state">No pages yet. Create your first page!</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('pages.noPages')}</div>\`;
           return;
         }
 
@@ -3646,23 +3939,23 @@ app.get('/wp-admin', (c) => {
             <table>
               <thead>
                 <tr>
-                  <th>Title</th>
-                  <th>Status</th>
-                  <th>Comment Status</th>
-                  <th>Date</th>
-                  <th>Actions</th>
+                  <th>\${i18n.t('posts.postTitle')}</th>
+                  <th>\${i18n.t('common.status')}</th>
+                  <th>\${i18n.t('pages.commentStatus')}</th>
+                  <th>\${i18n.t('common.date')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 \${pages.map(page => \`
                   <tr>
                     <td><strong>\${page.title.rendered}</strong></td>
-                    <td>\${page.status}</td>
-                    <td>\${page.comment_status}</td>
+                    <td>\${translateStatus(page.status)}</td>
+                    <td>\${translateStatus(page.comment_status)}</td>
                     <td>\${new Date(page.date).toLocaleDateString()}</td>
                     <td class="actions">
-                      <a href="#" class="action-link" onclick="editPage(\${page.id}); return false;">Edit</a>
-                      <a href="#" class="action-link delete" onclick="deletePage(\${page.id}); return false;">Delete</a>
+                      <a href="#" class="action-link" onclick="editPage(\${page.id}); return false;">\${i18n.t('common.edit')}</a>
+                      <a href="#" class="action-link delete" onclick="deletePage(\${page.id}); return false;">\${i18n.t('common.delete')}</a>
                     </td>
                   </tr>
                 \`).join('')}
@@ -3671,7 +3964,7 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load pages:', error);
+        console.error('加载失败 pages:', error);
       }
     }
 
@@ -3681,12 +3974,12 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Create New Page</h2>
+            <h2>创建新页面</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-page-form">
             <div class="form-group">
-              <label>Title *</label>
+              <label>标题 *</label>
               <input type="text" name="title" required>
             </div>
             <div class="form-group">
@@ -3704,16 +3997,16 @@ app.get('/wp-admin', (c) => {
             <div class="form-group">
               <label>Status</label>
               <select name="status">
-                <option value="draft">Draft</option>
-                <option value="publish">Publish</option>
+                <option value="draft">草稿</option>
+                <option value="publish">发布</option>
                 <option value="private">Private</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Comment Status</label>
+              <label>评论状态</label>
               <select name="comment_status">
-                <option value="open">Open</option>
-                <option value="closed">Closed</option>
+                <option value="open">开启</option>
+                <option value="closed">关闭</option>
               </select>
             </div>
             <button type="submit" class="button" style="width: 100%;">Create Page</button>
@@ -3771,7 +4064,7 @@ app.get('/wp-admin', (c) => {
             await loadPagesList();
           }
         } catch (error) {
-          console.error('Failed to create page:', error);
+          console.error('创建失败 page:', error);
         }
       });
     };
@@ -3786,12 +4079,12 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Page</h2>
+            <h2>编辑页面</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-page-form">
             <div class="form-group">
-              <label>Title *</label>
+              <label>标题 *</label>
               <input type="text" name="title" value="\${page.title.rendered}" required>
             </div>
             <div class="form-group">
@@ -3815,13 +4108,13 @@ app.get('/wp-admin', (c) => {
               </select>
             </div>
             <div class="form-group">
-              <label>Comment Status</label>
+              <label>评论状态</label>
               <select name="comment_status">
                 <option value="open" \${page.comment_status === 'open' ? 'selected' : ''}>Open</option>
                 <option value="closed" \${page.comment_status === 'closed' ? 'selected' : ''}>Closed</option>
               </select>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Update Page</button>
+            <button type="submit" class="button" style="width: 100%;">更新页面</button>
           </form>
         </div>
       \`;
@@ -3878,13 +4171,13 @@ app.get('/wp-admin', (c) => {
             await loadPagesList();
           }
         } catch (error) {
-          console.error('Failed to update page:', error);
+          console.error('更新失败 page:', error);
         }
       });
     };
 
     window.deletePage = async function(id) {
-      if (!confirm('Are you sure you want to delete this page?')) return;
+      if (!confirm('确定要删除 this page?')) return;
 
       try {
         await fetch(API_BASE + '/pages/' + id + '?force=true', {
@@ -3893,19 +4186,19 @@ app.get('/wp-admin', (c) => {
         });
         await loadPagesList();
       } catch (error) {
-        console.error('Failed to delete page:', error);
+        console.error('删除失败 page:', error);
       }
     };
 
     // Moments Management
     async function showMoments() {
-      renderLayout('Moments');
+      renderLayout(i18n.t('nav.moments'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>All Moments</h2>
-          <button class="button" onclick="showCreateMomentModal()">Add New Moment</button>
+          <h2>\${i18n.t('moments.allMoments')}</h2>
+          <button class="button" onclick="showCreateMomentModal()">\${i18n.t('moments.addNew')}</button>
         </div>
         <div id="moments-list"></div>
       \`;
@@ -3923,7 +4216,7 @@ app.get('/wp-admin', (c) => {
           const errorText = await response.text();
           console.error('API Error:', response.status, errorText);
           const container = document.getElementById('moments-list');
-          container.innerHTML = '<div class="error-message">Failed to load moments. Please check if the moments table exists in the database.</div>';
+          container.innerHTML = '<div class="error-message">加载失败 moments. Please check if the moments table exists in the database.</div>';
           return;
         }
 
@@ -3931,7 +4224,7 @@ app.get('/wp-admin', (c) => {
 
         const container = document.getElementById('moments-list');
         if (!moments || !Array.isArray(moments) || moments.length === 0) {
-          container.innerHTML = '<div class="empty-state">No moments yet. Share your first moment!</div>';
+          container.innerHTML = \`<div class="empty-state">\${i18n.t('moments.noMoments')}</div>\`;
           return;
         }
 
@@ -3963,8 +4256,8 @@ app.get('/wp-admin', (c) => {
                     </div>
                   </div>
                   <div style="display: flex; gap: 8px;">
-                    <a href="#" class="action-link" onclick="editMoment(\${moment.id}); return false;">Edit</a>
-                    <a href="#" class="action-link delete" onclick="deleteMoment(\${moment.id}); return false;">Delete</a>
+                    <a href="#" class="action-link" onclick="editMoment(\${moment.id}); return false;">\${i18n.t('common.edit')}</a>
+                    <a href="#" class="action-link delete" onclick="deleteMoment(\${moment.id}); return false;">\${i18n.t('common.delete')}</a>
                   </div>
                 </div>
               </div>
@@ -3972,7 +4265,7 @@ app.get('/wp-admin', (c) => {
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load moments:', error);
+        console.error('加载失败 moments:', error);
       }
     }
 
@@ -3982,19 +4275,19 @@ app.get('/wp-admin', (c) => {
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Create New Moment</h2>
+            <h2>创建新动态</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="create-moment-form">
             <div class="form-group">
-              <label>Content *</label>
+              <label>内容 *</label>
               <textarea name="content" required style="min-height: 150px;" placeholder="What's on your mind?"></textarea>
             </div>
             <div class="form-group">
-              <label>Media URLs (one per line)</label>
+              <label>媒体 URLs (每行一个)</label>
               <textarea id="media-urls-input" name="media_urls" style="min-height: 100px;" placeholder="https://example.com/image1.jpg
 https://example.com/image2.jpg"></textarea>
-              <small style="color: #646970; display: block; margin-top: 5px;">Enter image URLs, one per line. Or use the media library below.</small>
+              <small style="color: #646970; display: block; margin-top: 5px;">Enter image URLs, 每行一个. Or use the media library below.</small>
             </div>
             <div style="margin-bottom: 15px;">
               <button type="button" class="button button-secondary" onclick="openMediaLibraryForMoment('create')">Select from Media Library</button>
@@ -4002,8 +4295,8 @@ https://example.com/image2.jpg"></textarea>
             <div class="form-group">
               <label>Status</label>
               <select name="status">
-                <option value="publish">Publish</option>
-                <option value="draft">Draft</option>
+                <option value="publish">发布</option>
+                <option value="draft">草稿</option>
               </select>
             </div>
             <button type="submit" class="button" style="width: 100%;">Create Moment</button>
@@ -4042,7 +4335,7 @@ https://example.com/image2.jpg"></textarea>
             await loadMomentsList();
           }
         } catch (error) {
-          console.error('Failed to create moment:', error);
+          console.error('创建失败 moment:', error);
         }
       });
     };
@@ -4057,18 +4350,18 @@ https://example.com/image2.jpg"></textarea>
       modal.innerHTML = \`
         <div class="modal-content">
           <div class="modal-header">
-            <h2>Edit Moment</h2>
+            <h2>编辑动态</h2>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <form id="edit-moment-form">
             <div class="form-group">
-              <label>Content *</label>
+              <label>内容 *</label>
               <textarea name="content" required style="min-height: 150px;">\${moment.content.rendered}</textarea>
             </div>
             <div class="form-group">
-              <label>Media URLs (one per line)</label>
+              <label>媒体 URLs (每行一个)</label>
               <textarea id="media-urls-edit-input" name="media_urls" style="min-height: 100px;">\${moment.media_urls ? moment.media_urls.join('\\n') : ''}</textarea>
-              <small style="color: #646970; display: block; margin-top: 5px;">Enter image URLs, one per line.</small>
+              <small style="color: #646970; display: block; margin-top: 5px;">Enter image URLs, 每行一个.</small>
             </div>
             <div style="margin-bottom: 15px;">
               <button type="button" class="button button-secondary" onclick="openMediaLibraryForMoment('edit', \${id})">Select from Media Library</button>
@@ -4080,7 +4373,7 @@ https://example.com/image2.jpg"></textarea>
                 <option value="draft" \${moment.status === 'draft' ? 'selected' : ''}>Draft</option>
               </select>
             </div>
-            <button type="submit" class="button" style="width: 100%;">Update Moment</button>
+            <button type="submit" class="button" style="width: 100%;">更新动态</button>
           </form>
         </div>
       \`;
@@ -4116,13 +4409,13 @@ https://example.com/image2.jpg"></textarea>
             await loadMomentsList();
           }
         } catch (error) {
-          console.error('Failed to update moment:', error);
+          console.error('更新失败 moment:', error);
         }
       });
     };
 
     window.deleteMoment = async function(id) {
-      if (!confirm('Are you sure you want to delete this moment?')) return;
+      if (!confirm('确定要删除 this moment?')) return;
 
       try {
         await fetch(API_BASE + '/moments/' + id + '?force=true', {
@@ -4131,7 +4424,7 @@ https://example.com/image2.jpg"></textarea>
         });
         await loadMomentsList();
       } catch (error) {
-        console.error('Failed to delete moment:', error);
+        console.error('删除失败 moment:', error);
       }
     };
 
@@ -4145,7 +4438,7 @@ https://example.com/image2.jpg"></textarea>
             <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
           </div>
           <div style="margin-bottom: 15px;">
-            <button class="button" onclick="showUploadMediaModalInline()">Upload New File</button>
+            <button class="button" onclick="show上传MediaModalInline()">上传 New File</button>
           </div>
           <div id="moment-media-library-grid" style="max-height: 60vh; overflow-y: auto;"></div>
         </div>
@@ -4171,20 +4464,20 @@ https://example.com/image2.jpg"></textarea>
         container.innerHTML = \`
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
             \${mediaItems.map(media => \`
-              <div class="media-item" style="border: 2px solid #ddd; border-radius: 4px; overflow: hidden; cursor: pointer; transition: border-color 0.2s;" onclick="insertMediaIntoMoment('\${media.source_url}', '\${mode}')" onmouseover="this.style.borderColor='#2271b1'" onmouseout="this.style.borderColor='#ddd'">
-                <div style="height: 120px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+              <div class="media-item" style="border: 2px solid #ddd; border-radius: 4px; overflow: 隐藏; cursor: pointer; transition: border-color 0.2s;" onclick="insertMediaIntoMoment('\${media.source_url}', '\${mode}')" onmouseover="this.style.borderColor='#2271b1'" onmouseout="this.style.borderColor='#ddd'">
+                <div style="height: 120px; background: #f0f0f1; display: flex; align-items: center; justify-content: center; overflow: 隐藏;">
                   \${media.media_type === 'image'
                     ? \`<img src="\${media.source_url}" alt="\${media.alt_text}" style="max-width: 100%; max-height: 100%; object-fit: cover;">\`
                     : \`<div style="padding: 10px; text-align: center; font-size: 11px; color: #646970;">\${media.mime_type}</div>\`
                   }
                 </div>
-                <div style="padding: 8px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${media.title.rendered}">\${media.title.rendered}</div>
+                <div style="padding: 8px; font-size: 12px; white-space: nowrap; overflow: 隐藏; text-overflow: ellipsis;" title="\${media.title.rendered}">\${media.title.rendered}</div>
               </div>
             \`).join('')}
           </div>
         \`;
       } catch (error) {
-        console.error('Failed to load media library:', error);
+        console.error('加载失败 media library:', error);
       }
     }
 
@@ -4209,12 +4502,12 @@ https://example.com/image2.jpg"></textarea>
 
     // Settings Management
     async function showSettings() {
-      renderLayout('Site Settings');
+      renderLayout(i18n.t('settings.title'));
       const content = document.querySelector('.content-area');
 
       content.innerHTML = \`
         <div class="page-header">
-          <h2>Site Settings</h2>
+          <h2>\${i18n.t('settings.title')}</h2>
         </div>
         <div id="settings-container"></div>
       \`;
@@ -4235,15 +4528,27 @@ https://example.com/image2.jpg"></textarea>
         const container = document.getElementById('settings-container');
         container.innerHTML = \`
           <div style="max-width: 800px;">
+            <!-- Language Settings -->
+            <div style="background: white; padding: 20px 30px; border: 1px solid #c3c4c7; border-radius: 4px; margin-bottom: 20px;">
+              <h3 style="margin: 0 0 15px 0; color: #1d2327;">\${i18n.t('settings.language') || '界面语言'}</h3>
+              <div class="form-group" style="margin-bottom: 0;">
+                <select id="admin-lang-select" onchange="switchLanguage(this.value)" style="padding: 10px; min-width: 200px;">
+                  <option value="zh" \${i18n.currentLang === 'zh' ? 'selected' : ''}>中文</option>
+                  <option value="en" \${i18n.currentLang === 'en' ? 'selected' : ''}>English</option>
+                </select>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.languageHint') || '选择后台管理界面的显示语言'}</small>
+              </div>
+            </div>
+
             <form id="settings-form" style="background: white; padding: 30px; border: 1px solid #c3c4c7; border-radius: 4px;">
               <div class="form-group">
-                <label>Site Title *</label>
+                <label>Site 标题 *</label>
                 <input type="text" name="site_title" value="\${settings.site_title || ''}" required>
                 <small style="color: #646970; display: block; margin-top: 5px;">This will be displayed in the browser title bar and header.</small>
               </div>
 
               <div class="form-group">
-                <label>Site URL *</label>
+                <label>网站地址 *</label>
                 <input type="url" name="site_url" value="\${settings.site_url || ''}" required placeholder="https://example.com">
                 <small style="color: #646970; display: block; margin-top: 5px;">
                   The full URL of your site (no trailing slash). This value is also used as the home URL in the WordPress API.
@@ -4257,7 +4562,7 @@ https://example.com/image2.jpg"></textarea>
               </div>
 
               <div class="form-group">
-                <label>Site Description</label>
+                <label>网站描述</label>
                 <textarea name="site_description" style="min-height: 100px;">\${settings.site_description || ''}</textarea>
                 <small style="color: #646970; display: block; margin-top: 5px;">Used for SEO meta description.</small>
               </div>
@@ -4379,9 +4684,9 @@ https://example.com/image2.jpg"></textarea>
                 </ul>
               </div>
 
-              <div id="settings-message" class="hidden" style="margin-bottom: 20px;"></div>
+              <div id="settings-message" class="隐藏" style="margin-bottom: 20px;"></div>
 
-              <button type="submit" class="button" style="width: 100%;">Save Settings</button>
+              <button type="submit" class="button" style="width: 100%;">保存设置</button>
             </form>
           </div>
         \`;
@@ -4422,7 +4727,7 @@ https://example.com/image2.jpg"></textarea>
             });
 
             const messageDiv = document.getElementById('settings-message');
-            messageDiv.classList.remove('hidden');
+            messageDiv.classList.remove('隐藏');
 
             if (response.ok) {
               messageDiv.className = 'success-message';
@@ -4430,7 +4735,7 @@ https://example.com/image2.jpg"></textarea>
 
               // Reload settings after 1 second
               setTimeout(() => {
-                messageDiv.classList.add('hidden');
+                messageDiv.classList.add('隐藏');
               }, 3000);
             } else {
               const error = await response.json();
@@ -4440,15 +4745,15 @@ https://example.com/image2.jpg"></textarea>
           } catch (error) {
             console.error('Failed to save settings:', error);
             const messageDiv = document.getElementById('settings-message');
-            messageDiv.classList.remove('hidden');
+            messageDiv.classList.remove('隐藏');
             messageDiv.className = 'error-message';
             messageDiv.textContent = 'Failed to save settings. Please try again.';
           }
         });
       } catch (error) {
-        console.error('Failed to load settings:', error);
+        console.error('加载失败 settings:', error);
         const container = document.getElementById('settings-container');
-        container.innerHTML = '<div class="error-message">Failed to load settings.</div>';
+        container.innerHTML = '<div class="error-message">加载失败 settings.</div>';
       }
     }
 

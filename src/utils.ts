@@ -287,7 +287,7 @@ export function formatPostResponse(post: Post, baseUrl: string, categories: numb
     featured_image_url: post.featured_image_url || undefined,
     comment_status: post.comment_status,
     ping_status: 'closed',
-    sticky: false,
+    sticky: post.sticky === 1,
     template: '',
     format: 'standard',
     meta: [],
