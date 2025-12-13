@@ -19,6 +19,7 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     const tags = c.req.query('tags');
     const search = c.req.query('search');
     const slug = c.req.query('slug');  // 添加 slug 参数
+    const sticky = c.req.query('sticky');  // 添加 sticky 参数
     const orderby = c.req.query('orderby') || 'date';
     const order = c.req.query('order') || 'desc';
 
@@ -36,6 +37,13 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     if (slug) {
       query += ' AND slug = ?';
       params.push(slug);
+    }
+
+    // Filter by sticky
+    if (sticky !== undefined) {
+      const stickyValue = sticky === 'true' || sticky === '1' ? 1 : 0;
+      query += ' AND sticky = ?';
+      params.push(stickyValue);
     }
 
     // Filter by categories (支持ID或slug)
@@ -124,6 +132,12 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     if (slug) {
       countQuery += ' AND slug = ?';
       countParams.push(slug);
+    }
+    // Filter by sticky
+    if (sticky !== undefined) {
+      const stickyValue = sticky === 'true' || sticky === '1' ? 1 : 0;
+      countQuery += ' AND sticky = ?';
+      countParams.push(stickyValue);
     }
     // Filter by categories (支持ID或slug)
     if (categories) {
