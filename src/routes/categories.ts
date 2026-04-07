@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Env, Category, JWTPayload } from '../types';
+import type { AppEnv, Category, JWTPayload } from '../types';
 import { formatCategoryResponse, generateSlug, generateSmartTagSlug, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../auth';
 
-const categories = new Hono<{ Bindings: Env }>();
+const categories = new Hono<AppEnv>();
 
 // GET /wp/v2/categories - List categories
 categories.get('/', async (c) => {
@@ -69,7 +69,7 @@ categories.get('/', async (c) => {
     query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
-    const result = await c.env.DB.prepare(query).bind(...params).all();
+    const result = await c.env.DB.prepare(query).bind(...params).all<Category>();
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) as count FROM categories WHERE 1=1';
@@ -97,10 +97,10 @@ categories.get('/', async (c) => {
       }
     }
 
-    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first();
-    const totalItems = (countResult?.count as number) || 0;
+    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ count: number }>();
+    const totalItems = countResult?.count || 0;
 
-    const formattedCategories = (result.results as Category[]).map((cat) =>
+    const formattedCategories = result.results.map((cat) =>
       formatCategoryResponse(cat, baseUrl)
     );
 

@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Env, Tag, JWTPayload } from '../types';
+import type { AppEnv, Tag } from '../types';
 import { formatTagResponse, generateSlug, generateSmartTagSlug, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../auth';
 
-const tags = new Hono<{ Bindings: Env }>();
+const tags = new Hono<AppEnv>();
 
 // GET /wp/v2/tags - List tags
 tags.get('/', async (c) => {
@@ -69,7 +69,7 @@ tags.get('/', async (c) => {
     query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
-    const result = await c.env.DB.prepare(query).bind(...params).all();
+    const result = await c.env.DB.prepare(query).bind(...params).all<Tag>();
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) as count FROM tags WHERE 1=1';
@@ -97,10 +97,10 @@ tags.get('/', async (c) => {
       }
     }
 
-    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first();
-    const totalItems = (countResult?.count as number) || 0;
+    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ count: number }>();
+    const totalItems = countResult?.count || 0;
 
-    const formattedTags = (result.results as Tag[]).map((tag) =>
+    const formattedTags = result.results.map((tag) =>
       formatTagResponse(tag, baseUrl)
     );
 

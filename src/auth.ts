@@ -1,6 +1,6 @@
-import { Context, Next } from 'hono';
+import type { Context, Next } from 'hono';
 import { SignJWT, jwtVerify } from 'jose';
-import { Env, JWTPayload, User } from './types';
+import type { AppContext, AppEnv, JWTPayload, User } from './types';
 import { createWPError } from './utils';
 import bcrypt from 'bcryptjs';
 
@@ -69,7 +69,7 @@ export function extractToken(c: Context): string | null {
 }
 
 // Auth middleware - requires authentication
-export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
+export async function authMiddleware(c: AppContext, next: Next) {
   const token = extractToken(c);
 
   console.log('[DEBUG] Auth middleware - Token:', token ? token.substring(0, 20) + '...' : 'null');
@@ -93,7 +93,7 @@ export async function authMiddleware(c: Context<{ Bindings: Env }>, next: Next) 
 }
 
 // Optional auth middleware - doesn't require authentication but populates user if authenticated
-export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
+export async function optionalAuthMiddleware(c: AppContext, next: Next) {
   const token = extractToken(c);
 
   if (token) {
@@ -108,7 +108,7 @@ export async function optionalAuthMiddleware(c: Context<{ Bindings: Env }>, next
 
 // Role-based authorization middleware
 export function requireRole(...allowedRoles: string[]) {
-  return async (c: Context<{ Bindings: Env }>, next: Next) => {
+  return async (c: Context<AppEnv>, next: Next) => {
     const user = c.get('user') as JWTPayload | undefined;
 
     console.log('[DEBUG] requireRole - User:', user);
@@ -134,7 +134,7 @@ export function requireRole(...allowedRoles: string[]) {
 }
 
 // Check if user can edit post
-export async function canEditPost(c: Context<{ Bindings: Env }>, postId: number): Promise<boolean> {
+export async function canEditPost(c: Context<AppEnv>, postId: number): Promise<boolean> {
   const user = c.get('user') as JWTPayload | undefined;
 
   if (!user) {
@@ -150,16 +150,16 @@ export async function canEditPost(c: Context<{ Bindings: Env }>, postId: number)
   if (user.role === 'author' || user.role === 'contributor') {
     const post = await c.env.DB.prepare('SELECT author_id FROM posts WHERE id = ?')
       .bind(postId)
-      .first();
+      .first<{ author_id: number }>();
 
-    return post && post.author_id === user.userId;
+    return post?.author_id === user.userId;
   }
 
   return false;
 }
 
 // Check if user can delete post
-export async function canDeletePost(c: Context<{ Bindings: Env }>, postId: number): Promise<boolean> {
+export async function canDeletePost(c: Context<AppEnv>, postId: number): Promise<boolean> {
   const user = c.get('user') as JWTPayload | undefined;
 
   if (!user) {

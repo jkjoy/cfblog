@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Env, JWTPayload } from '../types';
+import type { AppEnv, Env, JWTPayload } from '../types';
 import { buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
 import { authMiddleware, optionalAuthMiddleware } from '../auth';
 
-const moments = new Hono<{ Bindings: Env }>();
+const moments = new Hono<AppEnv>();
 
 function getBaseUrl(value: unknown): string {
   return String(value || 'http://localhost:8787').replace(/\/$/, '');

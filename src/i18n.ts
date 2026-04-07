@@ -1,19 +1,29 @@
 // i18n Language Configuration for CFBlog Admin
 // 国际化语言配置
 
+type StorageLike = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+export type Language = 'zh' | 'en';
+
+function getLocalStorage(): StorageLike | undefined {
+  return (globalThis as typeof globalThis & { localStorage?: StorageLike }).localStorage;
+}
+
 export const i18n = {
   // 当前语言
-  currentLang: 'zh', // 默认中文
+  currentLang: 'zh' as Language, // 默认中文
 
   // 获取翻译文本
   t(key: string): string {
-    const lang = this.currentLang;
     const keys = key.split('.');
-    let value: any = this.translations[lang];
+    let value: unknown = this.translations[this.currentLang];
 
     for (const k of keys) {
-      if (value && typeof value === 'object') {
-        value = value[k];
+      if (value && typeof value === 'object' && k in value) {
+        value = (value as Record<string, unknown>)[k];
       } else {
         return key; // 如果找不到翻译，返回key本身
       }
@@ -23,20 +33,16 @@ export const i18n = {
   },
 
   // 切换语言
-  setLang(lang: 'zh' | 'en') {
+  setLang(lang: Language) {
     this.currentLang = lang;
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('admin_lang', lang);
-    }
+    getLocalStorage()?.setItem('admin_lang', lang);
   },
 
   // 初始化语言
   initLang() {
-    if (typeof localStorage !== 'undefined') {
-      const savedLang = localStorage.getItem('admin_lang');
-      if (savedLang === 'zh' || savedLang === 'en') {
-        this.currentLang = savedLang;
-      }
+    const savedLang = getLocalStorage()?.getItem('admin_lang');
+    if (savedLang === 'zh' || savedLang === 'en') {
+      this.currentLang = savedLang;
     }
   },
 
@@ -725,5 +731,4 @@ export const i18n = {
 };
 
 // 导出类型
-export type Language = 'zh' | 'en';
 export type TranslationKey = string;

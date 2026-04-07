@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { marked } from 'marked';
-import type { Env } from '../types';
+import type { AppEnv, Env } from '../types';
 import { getSiteSettings, md5, normalizeBaseUrl } from '../utils';
 import { PUBLIC_SITE_CSS, PUBLIC_SITE_JS } from './assets';
 
@@ -11,8 +11,8 @@ marked.use({
   gfm: true,
 });
 
-type AppContext = Context<{ Bindings: Env }>;
-type AppRouter = Hono<{ Bindings: Env }>;
+type AppContext = Context<AppEnv>;
+type AppRouter = Hono<AppEnv>;
 
 interface SiteMeta {
   authorName: string;

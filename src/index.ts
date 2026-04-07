@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { Env } from './types';
+import type { AppEnv } from './types';
 import { getSiteSettings } from './utils';
 import posts from './routes/posts';
 import categories from './routes/categories';
@@ -15,7 +15,7 @@ import settings from './routes/settings';
 import moments from './routes/moments';
 import { registerPublicSiteRoutes, renderPublicHome } from './public-site';
 
-const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<AppEnv>();
 
 // CORS middleware
 app.use('*', cors({

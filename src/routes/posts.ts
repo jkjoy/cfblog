@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Env, Post, JWTPayload } from '../types';
+import type { AppEnv, JWTPayload, Post } from '../types';
 import { formatPostResponse, generateSlug, generateSlugWithAI, generateExcerptWithAI, buildPaginationHeaders, createWPError, getSiteSettings, sendWebhook } from '../utils';
 import { authMiddleware, optionalAuthMiddleware, canEditPost, canDeletePost, canPublishPost } from '../auth';
 
-const posts = new Hono<{ Bindings: Env }>();
+const posts = new Hono<AppEnv>();
 
 // GET /wp/v2/posts - List posts
 posts.get('/', optionalAuthMiddleware, async (c) => {
@@ -63,9 +63,9 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
         const slugPlaceholders = categoryValues.map(() => '?').join(',');
         const categoryResult = await c.env.DB.prepare(
           `SELECT id FROM categories WHERE slug IN (${slugPlaceholders})`
-        ).bind(...categoryValues).all();
+        ).bind(...categoryValues).all<{ id: number }>();
 
-        const categoryIds = categoryResult.results.map((cat: any) => cat.id);
+        const categoryIds = categoryResult.results.map((cat) => cat.id);
 
         if (categoryIds.length > 0) {
           query += ` AND id IN (SELECT post_id FROM post_categories WHERE category_id IN (${categoryIds.map(() => '?').join(',')}))`;
@@ -90,9 +90,9 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
         const slugPlaceholders = tagValues.map(() => '?').join(',');
         const tagResult = await c.env.DB.prepare(
           `SELECT id FROM tags WHERE slug IN (${slugPlaceholders})`
-        ).bind(...tagValues).all();
+        ).bind(...tagValues).all<{ id: number }>();
 
-        const tagIds = tagResult.results.map((tag: any) => tag.id);
+        const tagIds = tagResult.results.map((tag) => tag.id);
 
         if (tagIds.length > 0) {
           query += ` AND id IN (SELECT post_id FROM post_tags WHERE tag_id IN (${tagIds.map(() => '?').join(',')}))`;
@@ -119,7 +119,7 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
-    const result = await c.env.DB.prepare(query).bind(...params).all();
+    const result = await c.env.DB.prepare(query).bind(...params).all<Post>();
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) as count FROM posts WHERE post_type = ? AND status = ?';
@@ -153,9 +153,9 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
         const slugPlaceholders = categoryValues.map(() => '?').join(',');
         const categoryResult = await c.env.DB.prepare(
           `SELECT id FROM categories WHERE slug IN (${slugPlaceholders})`
-        ).bind(...categoryValues).all();
+        ).bind(...categoryValues).all<{ id: number }>();
 
-        const categoryIds = categoryResult.results.map((cat: any) => cat.id);
+        const categoryIds = categoryResult.results.map((cat) => cat.id);
 
         if (categoryIds.length > 0) {
           countQuery += ` AND id IN (SELECT post_id FROM post_categories WHERE category_id IN (${categoryIds.map(() => '?').join(',')}))`;
@@ -178,9 +178,9 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
         const slugPlaceholders = tagValues.map(() => '?').join(',');
         const tagResult = await c.env.DB.prepare(
           `SELECT id FROM tags WHERE slug IN (${slugPlaceholders})`
-        ).bind(...tagValues).all();
+        ).bind(...tagValues).all<{ id: number }>();
 
-        const tagIds = tagResult.results.map((tag: any) => tag.id);
+        const tagIds = tagResult.results.map((tag) => tag.id);
 
         if (tagIds.length > 0) {
           countQuery += ` AND id IN (SELECT post_id FROM post_tags WHERE tag_id IN (${tagIds.map(() => '?').join(',')}))`;
@@ -195,27 +195,27 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
       countParams.push(`%${search}%`, `%${search}%`);
     }
 
-    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first();
-    const totalItems = (countResult?.count as number) || 0;
+    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ count: number }>();
+    const totalItems = countResult?.count || 0;
 
     // Get categories and tags for each post
     const formattedPosts = await Promise.all(
-      (result.results as Post[]).map(async (post) => {
+      result.results.map(async (post) => {
         // Get categories
         const categoryResult = await c.env.DB.prepare(
           'SELECT category_id FROM post_categories WHERE post_id = ?'
         )
           .bind(post.id)
-          .all();
-        const categoryIds = categoryResult.results.map((r: any) => r.category_id);
+          .all<{ category_id: number }>();
+        const categoryIds = categoryResult.results.map((r) => r.category_id);
 
         // Get tags
         const tagResult = await c.env.DB.prepare(
           'SELECT tag_id FROM post_tags WHERE post_id = ?'
         )
           .bind(post.id)
-          .all();
-        const tagIds = tagResult.results.map((r: any) => r.tag_id);
+          .all<{ tag_id: number }>();
+        const tagIds = tagResult.results.map((r) => r.tag_id);
 
         return formatPostResponse(post, baseUrl, categoryIds, tagIds);
       })
@@ -256,14 +256,14 @@ posts.get('/:id', optionalAuthMiddleware, async (c) => {
       'SELECT category_id FROM post_categories WHERE post_id = ?'
     )
       .bind(id)
-      .all();
-    const categoryIds = categoryResult.results.map((r: any) => r.category_id);
+      .all<{ category_id: number }>();
+    const categoryIds = categoryResult.results.map((r) => r.category_id);
 
     // Get tags
     const tagResult = await c.env.DB.prepare('SELECT tag_id FROM post_tags WHERE post_id = ?')
       .bind(id)
-      .all();
-    const tagIds = tagResult.results.map((r: any) => r.tag_id);
+      .all<{ tag_id: number }>();
+    const tagIds = tagResult.results.map((r) => r.tag_id);
 
     // Increment view count
     await c.env.DB.prepare('UPDATE posts SET view_count = view_count + 1 WHERE id = ?')
@@ -575,11 +575,11 @@ posts.put('/:id', authMiddleware, async (c) => {
         'SELECT category_id FROM post_categories WHERE post_id = ?'
       )
         .bind(id)
-        .all();
+        .all<{ category_id: number }>();
 
       for (const oldCat of oldCategories.results) {
         await c.env.DB.prepare('UPDATE categories SET count = count - 1 WHERE id = ?')
-          .bind((oldCat as any).category_id)
+          .bind(oldCat.category_id)
           .run();
       }
 
@@ -604,11 +604,11 @@ posts.put('/:id', authMiddleware, async (c) => {
       // Remove old tags
       const oldTags = await c.env.DB.prepare('SELECT tag_id FROM post_tags WHERE post_id = ?')
         .bind(id)
-        .all();
+        .all<{ tag_id: number }>();
 
       for (const oldTag of oldTags.results) {
         await c.env.DB.prepare('UPDATE tags SET count = count - 1 WHERE id = ?')
-          .bind((oldTag as any).tag_id)
+          .bind(oldTag.tag_id)
           .run();
       }
 
@@ -636,13 +636,13 @@ posts.put('/:id', authMiddleware, async (c) => {
       'SELECT category_id FROM post_categories WHERE post_id = ?'
     )
       .bind(id)
-      .all();
-    const categoryIds = categoryResult.results.map((r: any) => r.category_id);
+      .all<{ category_id: number }>();
+    const categoryIds = categoryResult.results.map((r) => r.category_id);
 
     const tagResult = await c.env.DB.prepare('SELECT tag_id FROM post_tags WHERE post_id = ?')
       .bind(id)
-      .all();
-    const tagIds = tagResult.results.map((r: any) => r.tag_id);
+      .all<{ tag_id: number }>();
+    const tagIds = tagResult.results.map((r) => r.tag_id);
 
     // Trigger webhook for post update
     const formattedPost = formatPostResponse(updatedPost!, baseUrl, categoryIds, tagIds);

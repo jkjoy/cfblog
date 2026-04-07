@@ -1,3 +1,6 @@
+import type { Context } from 'hono';
+import type { JWTPayload as JoseJWTPayload } from 'jose';
+
 // Cloudflare Workers environment bindings
 export interface Env {
   ASSETS: Fetcher;
@@ -243,14 +246,23 @@ export interface CommentResponse {
 }
 
 // JWT payload
-export interface JWTPayload {
+export interface JWTPayload extends JoseJWTPayload {
   userId: number;
   username: string;
   email: string;
-  role: string;
+  role: User['role'];
   iat?: number;
   exp?: number;
 }
+
+export interface AppEnv {
+  Bindings: Env;
+  Variables: {
+    user: JWTPayload;
+  };
+}
+
+export type AppContext = Context<AppEnv>;
 
 // API Response
 export interface APIResponse<T = any> {

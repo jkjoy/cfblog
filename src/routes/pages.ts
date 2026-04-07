@@ -1,9 +1,42 @@
 import { Hono } from 'hono';
-import { Env } from '../types';
+import type { AppEnv, Post } from '../types';
 import { authMiddleware } from '../auth';
 import { generateSlug, getSiteSettings } from '../utils';
 
-const pages = new Hono<{ Bindings: Env }>();
+const pages = new Hono<AppEnv>();
+
+interface PageWithAuthorRow extends Post {
+  author_name: string | null;
+}
+
+function formatPageResponse(page: PageWithAuthorRow, baseUrl: string) {
+  return {
+    id: page.id,
+    date: page.created_at,
+    modified: page.updated_at,
+    slug: page.slug,
+    status: page.status,
+    type: 'page',
+    title: {
+      rendered: page.title
+    },
+    content: {
+      rendered: page.content || ''
+    },
+    excerpt: {
+      rendered: page.excerpt || ''
+    },
+    author: page.author_id,
+    author_name: page.author_name,
+    featured_media: page.featured_image || '',
+    comment_status: page.comment_status,
+    parent: page.parent_id || 0,
+    _links: {
+      self: [{ href: `${baseUrl}/wp-json/wp/v2/pages/${page.id}` }],
+      collection: [{ href: `${baseUrl}/wp-json/wp/v2/pages` }]
+    }
+  };
+}
 
 // Get all pages
 pages.get('/', async (c) => {
@@ -33,7 +66,7 @@ pages.get('/', async (c) => {
     query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
-    const { results } = await c.env.DB.prepare(query).bind(...params).all();
+    const { results } = await c.env.DB.prepare(query).bind(...params).all<PageWithAuthorRow>();
 
     // Get total count
     let countQuery = `SELECT COUNT(*) as total FROM posts WHERE post_type = 'page'`;
@@ -42,39 +75,14 @@ pages.get('/', async (c) => {
       countQuery += ` AND status = ?`;
       countParams.push(status);
     }
-    const { total } = await c.env.DB.prepare(countQuery).bind(...countParams).first() as any;
+    const total = (await c.env.DB.prepare(countQuery).bind(...countParams).first<{ total: number }>())?.total || 0;
 
     const totalPages = Math.ceil(total / perPage);
 
     c.header('X-WP-Total', total.toString());
     c.header('X-WP-TotalPages', totalPages.toString());
 
-    return c.json(results.map(p => ({
-      id: p.id,
-      date: p.created_at,
-      modified: p.updated_at,
-      slug: p.slug,
-      status: p.status,
-      type: 'page',
-      title: {
-        rendered: p.title
-      },
-      content: {
-        rendered: p.content || ''
-      },
-      excerpt: {
-        rendered: p.excerpt || ''
-      },
-      author: p.author_id,
-      author_name: p.author_name,
-      featured_media: p.featured_image || '',
-      comment_status: p.comment_status,
-      parent: p.parent_id || 0,
-      _links: {
-        self: [{ href: `${baseUrl}/wp-json/wp/v2/pages/${p.id}` }],
-        collection: [{ href: `${baseUrl}/wp-json/wp/v2/pages` }]
-      }
-    })));
+    return c.json(results.map((p) => formatPageResponse(p, baseUrl)));
   } catch (error: any) {
     console.error('[DEBUG] Failed to get pages:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -94,38 +102,13 @@ pages.get('/:id', async (c) => {
       FROM posts p
       LEFT JOIN users u ON p.author_id = u.id
       WHERE p.id = ? AND p.post_type = 'page'
-    `).bind(id).first();
+    `).bind(id).first<PageWithAuthorRow>();
 
     if (!page) {
       return c.json({ code: 'rest_page_invalid', message: 'Invalid page ID.' }, 404);
     }
 
-    return c.json({
-      id: page.id,
-      date: page.created_at,
-      modified: page.updated_at,
-      slug: page.slug,
-      status: page.status,
-      type: 'page',
-      title: {
-        rendered: page.title
-      },
-      content: {
-        rendered: page.content || ''
-      },
-      excerpt: {
-        rendered: page.excerpt || ''
-      },
-      author: page.author_id,
-      author_name: page.author_name,
-      featured_media: page.featured_image || '',
-      comment_status: page.comment_status,
-      parent: page.parent_id || 0,
-      _links: {
-        self: [{ href: `${baseUrl}/wp-json/wp/v2/pages/${page.id}` }],
-        collection: [{ href: `${baseUrl}/wp-json/wp/v2/pages` }]
-      }
-    });
+    return c.json(formatPageResponse(page, baseUrl));
   } catch (error: any) {
     console.error('[DEBUG] Failed to get page:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -152,7 +135,7 @@ pages.post('/', authMiddleware, async (c) => {
     // Check if slug already exists
     const existingPage = await c.env.DB.prepare(`
       SELECT id FROM posts WHERE slug = ? AND post_type = 'page'
-    `).bind(pageSlug).first();
+    `).bind(pageSlug).first<{ id: number }>();
 
     if (existingPage) {
       return c.json({
@@ -190,27 +173,13 @@ pages.post('/', authMiddleware, async (c) => {
       FROM posts p
       LEFT JOIN users u ON p.author_id = u.id
       WHERE p.id = ?
-    `).bind(result.meta.last_row_id).first();
+    `).bind(result.meta.last_row_id).first<PageWithAuthorRow>();
 
-    return c.json({
-      id: newPage.id,
-      date: newPage.created_at,
-      slug: newPage.slug,
-      status: newPage.status,
-      type: 'page',
-      title: {
-        rendered: newPage.title
-      },
-      content: {
-        rendered: newPage.content || ''
-      },
-      excerpt: {
-        rendered: newPage.excerpt || ''
-      },
-      author: newPage.author_id,
-      comment_status: newPage.comment_status,
-      parent: newPage.parent_id || 0
-    }, 201);
+    if (!newPage) {
+      return c.json({ code: 'rest_page_invalid', message: 'Failed to create page.' }, 500);
+    }
+
+    return c.json(formatPageResponse(newPage, baseUrl), 201);
   } catch (error: any) {
     console.error('[DEBUG] Failed to create page:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -229,7 +198,7 @@ pages.put('/:id', authMiddleware, async (c) => {
 
     const existingPage = await c.env.DB.prepare(`
       SELECT * FROM posts WHERE id = ? AND post_type = 'page'
-    `).bind(id).first();
+    `).bind(id).first<Post>();
 
     if (!existingPage) {
       return c.json({ code: 'rest_page_invalid', message: 'Invalid page ID.' }, 404);
@@ -257,7 +226,7 @@ pages.put('/:id', authMiddleware, async (c) => {
       // Check if slug already exists for other pages
       const slugExists = await c.env.DB.prepare(`
         SELECT id FROM posts WHERE slug = ? AND id != ? AND post_type = 'page'
-      `).bind(slug.trim(), id).first();
+      `).bind(slug.trim(), id).first<{ id: number }>();
 
       if (slugExists) {
         return c.json({
@@ -301,28 +270,13 @@ pages.put('/:id', authMiddleware, async (c) => {
       FROM posts p
       LEFT JOIN users u ON p.author_id = u.id
       WHERE p.id = ?
-    `).bind(id).first();
+    `).bind(id).first<PageWithAuthorRow>();
 
-    return c.json({
-      id: updatedPage.id,
-      date: updatedPage.created_at,
-      modified: updatedPage.updated_at,
-      slug: updatedPage.slug,
-      status: updatedPage.status,
-      type: 'page',
-      title: {
-        rendered: updatedPage.title
-      },
-      content: {
-        rendered: updatedPage.content || ''
-      },
-      excerpt: {
-        rendered: updatedPage.excerpt || ''
-      },
-      author: updatedPage.author_id,
-      comment_status: updatedPage.comment_status,
-      parent: updatedPage.parent_id || 0
-    });
+    if (!updatedPage) {
+      return c.json({ code: 'rest_page_invalid', message: 'Invalid page ID.' }, 404);
+    }
+
+    return c.json(formatPageResponse(updatedPage, baseUrl));
   } catch (error: any) {
     console.error('[DEBUG] Failed to update page:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -340,7 +294,7 @@ pages.delete('/:id', authMiddleware, async (c) => {
 
     const page = await c.env.DB.prepare(`
       SELECT * FROM posts WHERE id = ? AND post_type = 'page'
-    `).bind(id).first();
+    `).bind(id).first<Post>();
 
     if (!page) {
       return c.json({ code: 'rest_page_invalid', message: 'Invalid page ID.' }, 404);
@@ -361,7 +315,11 @@ pages.delete('/:id', authMiddleware, async (c) => {
 
       const trashedPage = await c.env.DB.prepare(`
         SELECT * FROM posts WHERE id = ?
-      `).bind(id).first();
+      `).bind(id).first<Post>();
+
+      if (!trashedPage) {
+        return c.json({ code: 'rest_page_invalid', message: 'Invalid page ID.' }, 404);
+      }
 
       return c.json({
         id: trashedPage.id,

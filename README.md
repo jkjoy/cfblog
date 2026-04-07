@@ -143,8 +143,8 @@ bucket_name = "cfblog-media"           # 替换为你的 R2 存储桶名称
 [ai]
 binding = "AI"
 
-[vars]
-JWT_SECRET = "your-jwt-secret-here"    # 替换为安全的密钥
+#[vars]
+#JWT_SECRET = "your-jwt-secret-here"    # 替换为安全的密钥
 ```
 
 生产环境建议不要把真实密钥直接提交到仓库，可以使用：

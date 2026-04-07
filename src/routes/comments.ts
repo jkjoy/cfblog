@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { Env, Comment, JWTPayload } from '../types';
+import type { AppEnv, Comment, JWTPayload, User } from '../types';
 import { authMiddleware, optionalAuthMiddleware } from '../auth';
 import {
   getSiteSettings,
@@ -10,7 +10,27 @@ import {
 } from '../utils';
 import { sendCommentNotifications } from '../mail';
 
-const comments = new Hono<{ Bindings: Env }>();
+const comments = new Hono<AppEnv>();
+
+interface CommentWithPost extends Comment {
+  post_slug: string;
+  post_title: string | null;
+}
+
+interface ParentCommentRecord {
+  id: number;
+  post_id: number;
+  author_name: string;
+  author_email: string;
+  content: string;
+}
+
+interface PostRecord {
+  id: number;
+  slug: string;
+  title: string;
+  comment_status: string;
+}
 
 // GET /wp/v2/comments - List comments
 comments.get('/', optionalAuthMiddleware, async (c) => {
@@ -18,14 +38,8 @@ comments.get('/', optionalAuthMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    // Check if user is authenticated admin
-    let isAdmin = false;
-    try {
-      const user = c.get('user') as JWTPayload;
-      isAdmin = user && ['administrator', 'editor'].includes(user.role);
-    } catch (e) {
-      // Not authenticated, continue as public user
-    }
+    const user = c.get('user') as JWTPayload | undefined;
+    const isAdmin = !!user && ['administrator', 'editor'].includes(user.role);
 
     const page = parseInt(c.req.query('page') || '1');
     const perPage = parseInt(c.req.query('per_page') || '10');
@@ -87,7 +101,7 @@ comments.get('/', optionalAuthMiddleware, async (c) => {
     query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
-    const result = await c.env.DB.prepare(query).bind(...params).all();
+    const result = await c.env.DB.prepare(query).bind(...params).all<CommentWithPost>();
 
     // Get total count
     let countQuery = `SELECT COUNT(*) as count FROM comments c WHERE 1=1`;
@@ -120,18 +134,18 @@ comments.get('/', optionalAuthMiddleware, async (c) => {
       countParams.push(authorEmail);
     }
 
-    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first();
-    const totalItems = (countResult?.count as number) || 0;
+    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ count: number }>();
+    const totalItems = countResult?.count || 0;
 
     // Format comments
     const formattedComments = await Promise.all(
-      (result.results as any[]).map(async (comment) => {
+      result.results.map(async (comment) => {
         return formatCommentResponse(
-          comment as Comment,
+          comment,
           baseUrl,
           comment.post_slug,
           isAdmin,
-          comment.post_title
+          comment.post_title ?? undefined
         );
       })
     );
@@ -156,14 +170,8 @@ comments.get('/:id', optionalAuthMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    // Check if user is authenticated admin
-    let isAdmin = false;
-    try {
-      const user = c.get('user') as JWTPayload;
-      isAdmin = user && ['administrator', 'editor'].includes(user.role);
-    } catch (e) {
-      // Not authenticated
-    }
+    const user = c.get('user') as JWTPayload | undefined;
+    const isAdmin = !!user && ['administrator', 'editor'].includes(user.role);
 
     const id = parseInt(c.req.param('id'));
 
@@ -172,7 +180,7 @@ comments.get('/:id', optionalAuthMiddleware, async (c) => {
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
-    `).bind(id).first();
+    `).bind(id).first<CommentWithPost>();
 
     if (!comment) {
       return createWPError('rest_comment_invalid_id', 'Invalid comment ID.', 404);
@@ -184,11 +192,11 @@ comments.get('/:id', optionalAuthMiddleware, async (c) => {
     }
 
     const formattedComment = await formatCommentResponse(
-      comment as Comment,
+      comment,
       baseUrl,
       comment.post_slug,
       isAdmin,
-      comment.post_title
+      comment.post_title ?? undefined
     );
 
     return c.json(formattedComment);
@@ -207,13 +215,7 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
     let { post, parent, author, author_name, author_email, author_url, content } = body;
     let postId = Number(post || 0);
     const parentId = Number(parent || 0);
-    let parentCommentRecord: {
-      id: number;
-      post_id: number;
-      author_name: string;
-      author_email: string;
-      content: string;
-    } | null = null;
+    let parentCommentRecord: ParentCommentRecord | null = null;
 
     // If post is not provided but parent is, get post_id from parent comment
     if (!postId && parentId) {
@@ -221,7 +223,7 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
         'SELECT id, post_id, author_name, author_email, content FROM comments WHERE id = ?'
       )
         .bind(parentId)
-        .first();
+        .first<ParentCommentRecord>();
 
       if (parentCommentRecord) {
         postId = Number(parentCommentRecord.post_id);
@@ -244,13 +246,13 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
     let commentAuthorUrl = author_url;
 
     try {
-      const user = c.get('user') as JWTPayload;
+      const user = c.get('user') as JWTPayload | undefined;
       if (user) {
         userId = user.userId;
         // Get user details from database
         const userRecord = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?')
           .bind(userId)
-          .first();
+          .first<User>();
         if (userRecord) {
           commentAuthorName = userRecord.display_name || userRecord.username;
           commentAuthorEmail = userRecord.email;
@@ -282,7 +284,7 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
       'SELECT id, slug, title, comment_status FROM posts WHERE id = ? AND post_type = ?'
     )
       .bind(postId, 'post')
-      .first();
+      .first<PostRecord>();
 
     if (!postRecord) {
       return createWPError('rest_comment_invalid_post_id', 'Invalid post ID.', 404);
@@ -299,7 +301,7 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
           'SELECT id, post_id, author_name, author_email, content FROM comments WHERE id = ?'
         )
           .bind(parentId)
-          .first();
+          .first<ParentCommentRecord>();
       }
 
       if (!parentCommentRecord || Number(parentCommentRecord.post_id) !== postId) {
@@ -348,14 +350,18 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
-    `).bind(commentId).first();
+    `).bind(commentId).first<CommentWithPost>();
+
+    if (!newComment) {
+      return createWPError('rest_comment_invalid_id', 'Invalid comment ID.', 404);
+    }
 
     const formattedComment = await formatCommentResponse(
-      newComment as Comment,
+      newComment,
       baseUrl,
       newComment.post_slug,
       false,
-      newComment.post_title
+      newComment.post_title ?? undefined
     );
 
     // Trigger webhook for comment creation
@@ -363,7 +369,7 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
 
     c.executionCtx.waitUntil(
       sendCommentNotifications(c.env, {
-        comment: newComment as Comment,
+        comment: newComment,
         parentComment: parentCommentRecord,
         post: {
           id: postId,
@@ -386,7 +392,7 @@ comments.put('/:id', authMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const user = c.get('user') as JWTPayload;
+    const user = c.get('user');
     const isAdmin = ['administrator', 'editor'].includes(user.role);
 
     const id = parseInt(c.req.param('id'));
@@ -396,7 +402,7 @@ comments.put('/:id', authMiddleware, async (c) => {
     // Check if comment exists
     const existingComment = await c.env.DB.prepare('SELECT * FROM comments WHERE id = ?')
       .bind(id)
-      .first();
+      .first<Comment>();
 
     if (!existingComment) {
       return createWPError('rest_comment_invalid_id', 'Invalid comment ID.', 404);
@@ -453,14 +459,18 @@ comments.put('/:id', authMiddleware, async (c) => {
         FROM comments c
         LEFT JOIN posts p ON c.post_id = p.id
         WHERE c.id = ?
-      `).bind(id).first();
+      `).bind(id).first<CommentWithPost>();
+
+      if (!commentWithPost) {
+        return createWPError('rest_comment_invalid_id', 'Invalid comment ID.', 404);
+      }
 
       const formattedComment = await formatCommentResponse(
-        commentWithPost as Comment,
+        commentWithPost,
         baseUrl,
         commentWithPost.post_slug,
         isAdmin,
-        commentWithPost.post_title
+        commentWithPost.post_title ?? undefined
       );
       return c.json(formattedComment);
     }
@@ -476,14 +486,18 @@ comments.put('/:id', authMiddleware, async (c) => {
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
-    `).bind(id).first();
+    `).bind(id).first<CommentWithPost>();
+
+    if (!updatedComment) {
+      return createWPError('rest_comment_invalid_id', 'Invalid comment ID.', 404);
+    }
 
     const formattedComment = await formatCommentResponse(
-      updatedComment as Comment,
+      updatedComment,
       baseUrl,
       updatedComment.post_slug,
       isAdmin,
-      updatedComment.post_title
+      updatedComment.post_title ?? undefined
     );
 
     // Trigger webhook for comment update
@@ -501,7 +515,7 @@ comments.delete('/:id', authMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const user = c.get('user') as JWTPayload;
+    const user = c.get('user');
     const isAdmin = ['administrator', 'editor'].includes(user.role);
 
     const id = parseInt(c.req.param('id'));
@@ -513,7 +527,7 @@ comments.delete('/:id', authMiddleware, async (c) => {
       FROM comments c
       LEFT JOIN posts p ON c.post_id = p.id
       WHERE c.id = ?
-    `).bind(id).first();
+    `).bind(id).first<CommentWithPost>();
 
     if (!comment) {
       return createWPError('rest_comment_invalid_id', 'Invalid comment ID.', 404);
@@ -538,11 +552,11 @@ comments.delete('/:id', authMiddleware, async (c) => {
         .run();
 
       const formattedComment = await formatCommentResponse(
-        comment as Comment,
+        comment,
         baseUrl,
         comment.post_slug,
         isAdmin,
-        comment.post_title
+        comment.post_title ?? undefined
       );
 
       // Trigger webhook for comment deletion
@@ -560,14 +574,18 @@ comments.delete('/:id', authMiddleware, async (c) => {
         FROM comments c
         LEFT JOIN posts p ON c.post_id = p.id
         WHERE c.id = ?
-      `).bind(id).first();
+      `).bind(id).first<CommentWithPost>();
+
+      if (!trashedComment) {
+        return createWPError('rest_comment_invalid_id', 'Invalid comment ID.', 404);
+      }
 
       const formattedComment = await formatCommentResponse(
-        trashedComment as Comment,
+        trashedComment,
         baseUrl,
         trashedComment.post_slug,
         isAdmin,
-        trashedComment.post_title
+        trashedComment.post_title ?? undefined
       );
 
       // Trigger webhook for comment update

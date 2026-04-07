@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
-import type { Env } from '../types'
+import type { AppEnv } from '../types'
 import { clearSettingsCache } from '../utils'
 import { authMiddleware, requireRole } from '../auth'
 
-const settings = new Hono<{ Bindings: Env }>()
+const settings = new Hono<AppEnv>()
 
 // 获取所有系统设置（管理员专用，包含敏感字段）
 settings.get('/admin', authMiddleware, requireRole('administrator'), async (c) => {

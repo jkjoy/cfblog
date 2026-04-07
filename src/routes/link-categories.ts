@@ -1,9 +1,31 @@
 import { Hono } from 'hono';
-import { Env } from '../types';
+import type { AppEnv } from '../types';
 import { authMiddleware } from '../auth';
 import { generateSlug, getSiteSettings } from '../utils';
 
-const linkCategories = new Hono<{ Bindings: Env }>();
+const linkCategories = new Hono<AppEnv>();
+
+interface LinkCategoryRow {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  count: number | null;
+}
+
+function formatLinkCategoryResponse(category: LinkCategoryRow, baseUrl: string) {
+  return {
+    id: category.id,
+    name: category.name,
+    slug: category.slug,
+    description: category.description || '',
+    count: category.count || 0,
+    _links: {
+      self: [{ href: `${baseUrl}/wp-json/wp/v2/link-categories/${category.id}` }],
+      collection: [{ href: `${baseUrl}/wp-json/wp/v2/link-categories` }]
+    }
+  };
+}
 
 // Get all link categories
 linkCategories.get('/', async (c) => {
@@ -13,19 +35,9 @@ linkCategories.get('/', async (c) => {
 
     const { results } = await c.env.DB.prepare(`
       SELECT * FROM link_categories ORDER BY name ASC
-    `).all();
+    `).all<LinkCategoryRow>();
 
-    return c.json(results.map(cat => ({
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug,
-      description: cat.description || '',
-      count: cat.count || 0,
-      _links: {
-        self: [{ href: `${baseUrl}/wp-json/wp/v2/link-categories/${cat.id}` }],
-        collection: [{ href: `${baseUrl}/wp-json/wp/v2/link-categories` }]
-      }
-    })));
+    return c.json(results.map((cat) => formatLinkCategoryResponse(cat, baseUrl)));
   } catch (error: any) {
     console.error('[DEBUG] Failed to get link categories:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -42,23 +54,13 @@ linkCategories.get('/:id', async (c) => {
 
     const category = await c.env.DB.prepare(`
       SELECT * FROM link_categories WHERE id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkCategoryRow>();
 
     if (!category) {
       return c.json({ code: 'rest_category_invalid', message: 'Invalid category ID.' }, 404);
     }
 
-    return c.json({
-      id: category.id,
-      name: category.name,
-      slug: category.slug,
-      description: category.description || '',
-      count: category.count || 0,
-      _links: {
-        self: [{ href: `${baseUrl}/wp-json/wp/v2/link-categories/${category.id}` }],
-        collection: [{ href: `${baseUrl}/wp-json/wp/v2/link-categories` }]
-      }
-    });
+    return c.json(formatLinkCategoryResponse(category, baseUrl));
   } catch (error: any) {
     console.error('[DEBUG] Failed to get link category:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -91,18 +93,13 @@ linkCategories.post('/', authMiddleware, async (c) => {
 
     const newCategory = await c.env.DB.prepare(`
       SELECT * FROM link_categories WHERE id = ?
-    `).bind(result.meta.last_row_id).first();
+    `).bind(result.meta.last_row_id).first<LinkCategoryRow>();
 
-    return c.json({
-      id: newCategory.id,
-      name: newCategory.name,
-      slug: newCategory.slug,
-      description: newCategory.description || '',
-      count: 0,
-      _links: {
-        self: [{ href: `${baseUrl}/wp-json/wp/v2/link-categories/${newCategory.id}` }]
-      }
-    }, 201);
+    if (!newCategory) {
+      return c.json({ code: 'rest_category_invalid', message: 'Failed to create category.' }, 500);
+    }
+
+    return c.json(formatLinkCategoryResponse(newCategory, baseUrl), 201);
   } catch (error: any) {
     console.error('[DEBUG] Failed to create link category:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -119,11 +116,14 @@ linkCategories.put('/:id', authMiddleware, async (c) => {
   const id = parseInt(c.req.param('id'));
 
   try {
+    const settings = await getSiteSettings(c.env);
+    const baseUrl = settings.site_url || 'http://localhost:8787';
+
     const { name, slug, description } = await c.req.json();
 
     const existingCategory = await c.env.DB.prepare(`
       SELECT * FROM link_categories WHERE id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkCategoryRow>();
 
     if (!existingCategory) {
       return c.json({ code: 'rest_category_invalid', message: 'Invalid category ID.' }, 404);
@@ -165,15 +165,13 @@ linkCategories.put('/:id', authMiddleware, async (c) => {
 
     const updatedCategory = await c.env.DB.prepare(`
       SELECT * FROM link_categories WHERE id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkCategoryRow>();
 
-    return c.json({
-      id: updatedCategory.id,
-      name: updatedCategory.name,
-      slug: updatedCategory.slug,
-      description: updatedCategory.description || '',
-      count: updatedCategory.count || 0
-    });
+    if (!updatedCategory) {
+      return c.json({ code: 'rest_category_invalid', message: 'Invalid category ID.' }, 404);
+    }
+
+    return c.json(formatLinkCategoryResponse(updatedCategory, baseUrl));
   } catch (error: any) {
     console.error('[DEBUG] Failed to update link category:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -194,9 +192,12 @@ linkCategories.delete('/:id', authMiddleware, async (c) => {
   }
 
   try {
+    const settings = await getSiteSettings(c.env);
+    const baseUrl = settings.site_url || 'http://localhost:8787';
+
     const category = await c.env.DB.prepare(`
       SELECT * FROM link_categories WHERE id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkCategoryRow>();
 
     if (!category) {
       return c.json({ code: 'rest_category_invalid', message: 'Invalid category ID.' }, 404);
@@ -211,7 +212,7 @@ linkCategories.delete('/:id', authMiddleware, async (c) => {
       DELETE FROM link_categories WHERE id = ?
     `).bind(id).run();
 
-    return c.json({ deleted: true, previous: category });
+    return c.json({ deleted: true, previous: formatLinkCategoryResponse(category, baseUrl) });
   } catch (error: any) {
     console.error('[DEBUG] Failed to delete link category:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);

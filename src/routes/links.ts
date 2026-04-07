@@ -1,9 +1,54 @@
 import { Hono } from 'hono';
-import { Env } from '../types';
+import type { AppEnv } from '../types';
 import { authMiddleware } from '../auth';
 import { getSiteSettings } from '../utils';
 
-const links = new Hono<{ Bindings: Env }>();
+const links = new Hono<AppEnv>();
+
+interface LinkRow {
+  id: number;
+  name: string;
+  url: string;
+  description: string | null;
+  avatar: string | null;
+  category_id: number;
+  target: string;
+  visible: string;
+  rating: number | null;
+  sort_order: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface LinkWithCategoryRow extends LinkRow {
+  category_name: string | null;
+  category_slug: string | null;
+}
+
+function formatLinkResponse(link: LinkWithCategoryRow, baseUrl: string) {
+  return {
+    id: link.id,
+    name: link.name,
+    url: link.url,
+    description: link.description || '',
+    avatar: link.avatar || '',
+    category: {
+      id: link.category_id,
+      name: link.category_name,
+      slug: link.category_slug
+    },
+    target: link.target,
+    visible: link.visible,
+    rating: link.rating || 0,
+    sort_order: link.sort_order || 0,
+    created_at: link.created_at,
+    updated_at: link.updated_at,
+    _links: {
+      self: [{ href: `${baseUrl}/wp-json/wp/v2/links/${link.id}` }],
+      collection: [{ href: `${baseUrl}/wp-json/wp/v2/links` }]
+    }
+  };
+}
 
 // Get all links
 links.get('/', async (c) => {
@@ -34,7 +79,7 @@ links.get('/', async (c) => {
     query += ` ORDER BY l.sort_order ASC, l.created_at DESC LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
-    const { results } = await c.env.DB.prepare(query).bind(...params).all();
+    const { results } = await c.env.DB.prepare(query).bind(...params).all<LinkWithCategoryRow>();
 
     // Get total count
     let countQuery = `SELECT COUNT(*) as total FROM links WHERE visible = ?`;
@@ -43,35 +88,14 @@ links.get('/', async (c) => {
       countQuery += ` AND category_id = ?`;
       countParams.push(parseInt(categoryId));
     }
-    const { total } = await c.env.DB.prepare(countQuery).bind(...countParams).first() as any;
+    const total = (await c.env.DB.prepare(countQuery).bind(...countParams).first<{ total: number }>())?.total || 0;
 
     const totalPages = Math.ceil(total / perPage);
 
     c.header('X-WP-Total', total.toString());
     c.header('X-WP-TotalPages', totalPages.toString());
 
-    return c.json(results.map(link => ({
-      id: link.id,
-      name: link.name,
-      url: link.url,
-      description: link.description || '',
-      avatar: link.avatar || '',
-      category: {
-        id: link.category_id,
-        name: link.category_name,
-        slug: link.category_slug
-      },
-      target: link.target,
-      visible: link.visible,
-      rating: link.rating || 0,
-      sort_order: link.sort_order || 0,
-      created_at: link.created_at,
-      updated_at: link.updated_at,
-      _links: {
-        self: [{ href: `${baseUrl}/wp-json/wp/v2/links/${link.id}` }],
-        collection: [{ href: `${baseUrl}/wp-json/wp/v2/links` }]
-      }
-    })));
+    return c.json(results.map((link) => formatLinkResponse(link, baseUrl)));
   } catch (error: any) {
     console.error('[DEBUG] Failed to get links:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -91,34 +115,13 @@ links.get('/:id', async (c) => {
       FROM links l
       LEFT JOIN link_categories lc ON l.category_id = lc.id
       WHERE l.id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkWithCategoryRow>();
 
     if (!link) {
       return c.json({ code: 'rest_link_invalid', message: 'Invalid link ID.' }, 404);
     }
 
-    return c.json({
-      id: link.id,
-      name: link.name,
-      url: link.url,
-      description: link.description || '',
-      avatar: link.avatar || '',
-      category: {
-        id: link.category_id,
-        name: link.category_name,
-        slug: link.category_slug
-      },
-      target: link.target,
-      visible: link.visible,
-      rating: link.rating || 0,
-      sort_order: link.sort_order || 0,
-      created_at: link.created_at,
-      updated_at: link.updated_at,
-      _links: {
-        self: [{ href: `${baseUrl}/wp-json/wp/v2/links/${link.id}` }],
-        collection: [{ href: `${baseUrl}/wp-json/wp/v2/links` }]
-      }
-    });
+    return c.json(formatLinkResponse(link, baseUrl));
   } catch (error: any) {
     console.error('[DEBUG] Failed to get link:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -128,6 +131,9 @@ links.get('/:id', async (c) => {
 // Create link (requires authentication)
 links.post('/', authMiddleware, async (c) => {
   try {
+    const settings = await getSiteSettings(c.env);
+    const baseUrl = settings.site_url || 'http://localhost:8787';
+
     const { name, url, description, avatar, category_id, target, visible, rating, sort_order } = await c.req.json();
 
     if (!name || !url) {
@@ -165,26 +171,13 @@ links.post('/', authMiddleware, async (c) => {
       FROM links l
       LEFT JOIN link_categories lc ON l.category_id = lc.id
       WHERE l.id = ?
-    `).bind(result.meta.last_row_id).first();
+    `).bind(result.meta.last_row_id).first<LinkWithCategoryRow>();
 
-    return c.json({
-      id: newLink.id,
-      name: newLink.name,
-      url: newLink.url,
-      description: newLink.description || '',
-      avatar: newLink.avatar || '',
-      category: {
-        id: newLink.category_id,
-        name: newLink.category_name,
-        slug: newLink.category_slug
-      },
-      target: newLink.target,
-      visible: newLink.visible,
-      rating: newLink.rating || 0,
-      sort_order: newLink.sort_order || 0,
-      created_at: newLink.created_at,
-      updated_at: newLink.updated_at
-    }, 201);
+    if (!newLink) {
+      return c.json({ code: 'rest_link_invalid', message: 'Failed to create link.' }, 500);
+    }
+
+    return c.json(formatLinkResponse(newLink, baseUrl), 201);
   } catch (error: any) {
     console.error('[DEBUG] Failed to create link:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -196,11 +189,14 @@ links.put('/:id', authMiddleware, async (c) => {
   const id = parseInt(c.req.param('id'));
 
   try {
+    const settings = await getSiteSettings(c.env);
+    const baseUrl = settings.site_url || 'http://localhost:8787';
+
     const { name, url, description, avatar, category_id, target, visible, rating, sort_order } = await c.req.json();
 
     const existingLink = await c.env.DB.prepare(`
       SELECT * FROM links WHERE id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkRow>();
 
     if (!existingLink) {
       return c.json({ code: 'rest_link_invalid', message: 'Invalid link ID.' }, 404);
@@ -275,26 +271,13 @@ links.put('/:id', authMiddleware, async (c) => {
       FROM links l
       LEFT JOIN link_categories lc ON l.category_id = lc.id
       WHERE l.id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkWithCategoryRow>();
 
-    return c.json({
-      id: updatedLink.id,
-      name: updatedLink.name,
-      url: updatedLink.url,
-      description: updatedLink.description || '',
-      avatar: updatedLink.avatar || '',
-      category: {
-        id: updatedLink.category_id,
-        name: updatedLink.category_name,
-        slug: updatedLink.category_slug
-      },
-      target: updatedLink.target,
-      visible: updatedLink.visible,
-      rating: updatedLink.rating || 0,
-      sort_order: updatedLink.sort_order || 0,
-      created_at: updatedLink.created_at,
-      updated_at: updatedLink.updated_at
-    });
+    if (!updatedLink) {
+      return c.json({ code: 'rest_link_invalid', message: 'Invalid link ID.' }, 404);
+    }
+
+    return c.json(formatLinkResponse(updatedLink, baseUrl));
   } catch (error: any) {
     console.error('[DEBUG] Failed to update link:', error);
     return c.json({ code: 'rest_internal_error', message: error.message }, 500);
@@ -308,7 +291,7 @@ links.delete('/:id', authMiddleware, async (c) => {
   try {
     const link = await c.env.DB.prepare(`
       SELECT * FROM links WHERE id = ?
-    `).bind(id).first();
+    `).bind(id).first<LinkRow>();
 
     if (!link) {
       return c.json({ code: 'rest_link_invalid', message: 'Invalid link ID.' }, 404);

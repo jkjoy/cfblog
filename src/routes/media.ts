@@ -1,9 +1,16 @@
 import { Hono } from 'hono';
-import { Env, Media, JWTPayload } from '../types';
+import type { AppEnv, Media } from '../types';
 import { formatMediaResponse, buildPaginationHeaders, createWPError, getSiteSettings, normalizeBaseUrl } from '../utils';
 import { authMiddleware, requireRole } from '../auth';
 
-const media = new Hono<{ Bindings: Env }>();
+const media = new Hono<AppEnv>();
+
+interface UploadedFileLike {
+  arrayBuffer(): Promise<ArrayBuffer>;
+  name: string;
+  size: number;
+  type: string;
+}
 
 // GET /wp/v2/media - List media
 media.get('/', authMiddleware, async (c) => {
@@ -47,7 +54,7 @@ media.get('/', authMiddleware, async (c) => {
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     params.push(perPage, offset);
 
-    const result = await c.env.DB.prepare(query).bind(...params).all();
+    const result = await c.env.DB.prepare(query).bind(...params).all<Media>();
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) as count FROM media WHERE 1=1';
@@ -57,10 +64,10 @@ media.get('/', authMiddleware, async (c) => {
       countParams.push(parseInt(author));
     }
 
-    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first();
-    const totalItems = (countResult?.count as number) || 0;
+    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ count: number }>();
+    const totalItems = countResult?.count || 0;
 
-    const formattedMedia = (result.results as Media[]).map((m) =>
+    const formattedMedia = result.results.map((m) =>
       formatMediaResponse(m, baseUrl)
     );
 
@@ -106,15 +113,15 @@ media.post('/', authMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const user = c.get('user') as JWTPayload;
+    const user = c.get('user');
 
     // Get the uploaded file from the request
     const formData = await c.req.formData();
-    const file = formData.get('file') as File;
-
-    if (!file) {
+    const fileEntry = formData.get('file');
+    if (!fileEntry || typeof fileEntry === 'string') {
       return createWPError('rest_invalid_param', 'File is required.', 400);
     }
+    const file = fileEntry as unknown as UploadedFileLike;
 
     const title = (formData.get('title') as string) || file.name;
     const altText = (formData.get('alt_text') as string) || '';
@@ -219,7 +226,7 @@ media.put('/:id', authMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const user = c.get('user') as JWTPayload;
+    const user = c.get('user');
     const id = parseInt(c.req.param('id'));
 
     // Check if media exists
@@ -286,7 +293,11 @@ media.put('/:id', authMiddleware, async (c) => {
       .bind(id)
       .first<Media>();
 
-    return c.json(formatMediaResponse(updatedMedia!, baseUrl));
+    if (!updatedMedia) {
+      return createWPError('rest_post_invalid_id', 'Invalid media ID.', 404);
+    }
+
+    return c.json(formatMediaResponse(updatedMedia, baseUrl));
   } catch (error: any) {
     return createWPError('server_error', error.message, 500);
   }
@@ -298,7 +309,7 @@ media.delete('/:id', authMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const user = c.get('user') as JWTPayload;
+    const user = c.get('user');
     const id = parseInt(c.req.param('id'));
     const force = c.req.query('force') === 'true';
 

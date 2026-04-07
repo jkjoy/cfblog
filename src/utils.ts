@@ -4,6 +4,7 @@ import { Env, Post, PostResponse, Category, CategoryResponse, Tag, TagResponse, 
 let settingsCache: Record<string, any> | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minute
+const AI_TEXT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
 
 // Get site settings from database
 export async function getSiteSettings(env: Env): Promise<Record<string, any>> {
@@ -14,7 +15,10 @@ export async function getSiteSettings(env: Env): Promise<Record<string, any>> {
   }
 
   try {
-    const result = await env.DB.prepare('SELECT setting_key, setting_value FROM site_settings').all();
+    const result = await env.DB.prepare('SELECT setting_key, setting_value FROM site_settings').all<{
+      setting_key: string;
+      setting_value: string;
+    }>();
     const settings: Record<string, any> = {
       site_title: 'CFBlog',
       site_description: '基于 Cloudflare Workers + D1 + R2 构建的现代化博客系统',
@@ -33,7 +37,7 @@ export async function getSiteSettings(env: Env): Promise<Record<string, any>> {
       social_qq: ''
     };
 
-    for (const row of result.results as any[]) {
+    for (const row of result.results) {
       settings[row.setting_key] = row.setting_value;
     }
 
@@ -220,9 +224,7 @@ export async function md5(text: string): Promise<string> {
   }
 
   function hex(x: number[]) {
-    for (let i = 0; i < x.length; i++)
-      x[i] = rhex(x[i]);
-    return x.join('');
+    return x.map((value) => rhex(value)).join('');
   }
 
   return hex(md51(str));
@@ -647,7 +649,7 @@ export async function sendWebhook(env: Env, event: WebhookEvent, data: any): Pro
     }
 
     // Check if this event should trigger webhook
-    const enabledEvents = webhookEvents.split(',').map(e => e.trim());
+    const enabledEvents = webhookEvents.split(',').map((e: string) => e.trim());
     if (enabledEvents.length > 0 && !enabledEvents.includes(event)) {
       console.log(`[Webhook] Skipped: Event '${event}' not in enabled events`);
       return;
@@ -763,7 +765,7 @@ Respond with ONLY the slug, nothing else. Example format: "understanding-machine
 
 Slug:`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const response = await env.AI.run(AI_TEXT_MODEL, {
       prompt,
       max_tokens: 50
     }) as { response: string };
@@ -841,7 +843,7 @@ Generate ONLY the excerpt text, nothing else:`
 
     const prompt = languagePrompts[language] || languagePrompts['zh'];
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    const response = await env.AI.run(AI_TEXT_MODEL, {
       prompt,
       max_tokens: 100
     }) as { response: string };

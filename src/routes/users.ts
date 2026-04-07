@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Env, User, JWTPayload } from '../types';
+import type { AppEnv, JWTPayload, User } from '../types';
 import { formatUserResponse, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
 import { authMiddleware, optionalAuthMiddleware, requireRole, generateToken, hashPassword, comparePassword } from '../auth';
 
-const users = new Hono<{ Bindings: Env }>();
+const users = new Hono<AppEnv>();
 
 // POST /wp/v2/users/login - Login (non-standard WordPress endpoint but useful)
 users.post('/login', async (c) => {
@@ -93,9 +93,9 @@ users.post('/register', async (c) => {
 
     // Check if this is the first user - if so, make them an administrator
     const userCount = await c.env.DB.prepare('SELECT COUNT(*) as count FROM users')
-      .first();
+      .first<{ count: number }>();
 
-    const isFirstUser = (userCount?.count as number) === 0;
+    const isFirstUser = (userCount?.count || 0) === 0;
     const userRole = isFirstUser ? 'administrator' : 'subscriber';
 
     // Hash password
@@ -207,7 +207,7 @@ users.get('/', optionalAuthMiddleware, async (c) => {
     query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
-    const result = await c.env.DB.prepare(query).bind(...params).all();
+    const result = await c.env.DB.prepare(query).bind(...params).all<User>();
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) as count FROM users WHERE status = ?';
@@ -221,10 +221,10 @@ users.get('/', optionalAuthMiddleware, async (c) => {
       countParams.push(role);
     }
 
-    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first();
-    const totalItems = (countResult?.count as number) || 0;
+    const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ count: number }>();
+    const totalItems = countResult?.count || 0;
 
-    const formattedUsers = await Promise.all((result.results as User[]).map(async (user) => {
+    const formattedUsers = await Promise.all(result.results.map(async (user) => {
       delete user.password;
       return await formatUserResponse(user, baseUrl, isAdmin);
     }));
