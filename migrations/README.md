@@ -10,6 +10,16 @@
 
 ⚠️ **重要提示**：由于 Cloudflare D1 迁移系统的限制，建议使用 `execute` 命令而不是 `migrations apply`。
 
+仓库中的 GitHub Actions 也已经改为执行 `scripts/reconcile-remote-d1.mjs`，不再直接调用 `d1 migrations apply`。
+
+如果新增的是“需要兼容已有数据库状态”的迁移，请同步更新 `scripts/reconcile-remote-d1.mjs` 里的 `migrationPlan`，给它补一条检测和补偿规则。
+
+本地可以直接执行：
+
+```bash
+node ./scripts/reconcile-remote-d1.mjs cfblog-db --local
+```
+
 ### 推荐方法：使用 execute 命令
 
 **本地环境：**

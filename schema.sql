@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS posts (
     comment_status TEXT DEFAULT 'open' CHECK(comment_status IN ('open', 'closed')),
     comment_count INTEGER DEFAULT 0,
     view_count INTEGER DEFAULT 0,
+    sticky INTEGER DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     published_at TEXT,
@@ -215,6 +216,7 @@ CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
 CREATE INDEX IF NOT EXISTS idx_posts_type ON posts(post_type);
 CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug);
 CREATE INDEX IF NOT EXISTS idx_posts_published ON posts(published_at);
+CREATE INDEX IF NOT EXISTS idx_posts_sticky ON posts(sticky);
 CREATE INDEX IF NOT EXISTS idx_posts_featured_media ON posts(featured_media_id);
 CREATE INDEX IF NOT EXISTS idx_posts_featured_image_url ON posts(featured_image_url);
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
@@ -272,7 +274,7 @@ INSERT OR IGNORE INTO site_settings (setting_key, setting_value) VALUES
 ('social_email', ''),
 ('social_qq', ''),
 ('site_icp', ''),
-('site_footer_text', '© 2024 CFBlog. Powered by Cloudflare Workers.'),
+('site_footer_text', '© 2026 CFBlog. Powered by Cloudflare Workers.'),
 ('head_html', ''),
 ('webhook_url', ''),
 ('webhook_secret', ''),

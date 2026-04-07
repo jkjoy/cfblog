@@ -221,16 +221,19 @@ npm run deploy
 
 ```bash
 npm ci
-npx wrangler d1 migrations apply cfblog-db --remote
+node ./scripts/reconcile-remote-d1.mjs cfblog-db
 npx wrangler deploy
 ```
 
 注意事项：
 
-- GitHub Actions 现在会在部署前自动执行远端 D1 migrations
+- GitHub Actions 现在会在部署前执行远端 D1 schema 对账脚本
 - `push -> main` 时默认自动迁移并部署
 - 手动触发 `workflow_dispatch` 时，可以通过 `apply_migrations` 选择是否先执行迁移
-- 如果你修改了 `schema.sql`，请同步整理对应的 `migrations/*.sql`，自动部署只会执行迁移目录中的脚本
+- 工作流会先执行 `schema.sql`，再兼容处理历史 `sticky` 字段迁移，避免已有数据库因为重复列报错
+- 如需本地演练同一套逻辑，可执行 `node ./scripts/reconcile-remote-d1.mjs cfblog-db --local`
+- `scripts/reconcile-remote-d1.mjs` 内部维护了一个 migration plan；以后新增“兼容老库”的迁移时，记得同步补一条检测规则
+- 如果你修改了 `schema.sql`，请同步整理对应的 `migrations/*.sql`，尤其是需要兼容旧库时
 - 已经应用到生产环境的迁移文件不要再修改，只新增新的迁移文件
 - `RESEND_API_KEY` 需要通过 `wrangler secret put RESEND_API_KEY` 配置到 Worker，不需要放到 GitHub Actions Secrets
 
