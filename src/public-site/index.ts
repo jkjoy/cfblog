@@ -612,7 +612,7 @@ async function renderContentBySlug(c: AppContext): Promise<Response> {
           </section>
           <section class="vh-page-section">
             <h2>发表评论</h2>
-            <p>支持访客评论，无需独立前端应用。</p>
+            <p>雁过留声，人过留名</p>
             ${renderCommentForm({ formId: articleCommentFormId, id: detail.id, kind: 'post' })}
           </section>
         </section>
