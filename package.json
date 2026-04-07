@@ -9,7 +9,8 @@
     "dev:remote": "npx wrangler dev",
     "deploy": "npx wrangler deploy",
     "db:init": "npx wrangler d1 execute cfblog-db --file=./schema.sql --remote",
-    "db:migrate": "npx wrangler d1 migrations apply cfblog-db"
+    "db:migrate": "npx wrangler d1 migrations apply cfblog-db",
+    "db:migrate:remote": "npx wrangler d1 migrations apply cfblog-db --remote"
   },
   "keywords": [
     "cloudflare",
@@ -24,7 +25,7 @@
     "@cloudflare/workers-types": "^4.20241127.0",
     "less": "^4.6.4",
     "typescript": "^5.7.2",
-    "wrangler": "^3.94.0"
+    "wrangler": "^4.80.0"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
