@@ -8,6 +8,7 @@ import {
   createWPError,
   sendWebhook
 } from '../utils';
+import { sendCommentNotifications } from '../mail';
 
 const comments = new Hono<{ Bindings: Env }>();
 
@@ -204,26 +205,35 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
 
     const body = await c.req.json();
     let { post, parent, author, author_name, author_email, author_url, content } = body;
+    let postId = Number(post || 0);
+    const parentId = Number(parent || 0);
+    let parentCommentRecord: {
+      id: number;
+      post_id: number;
+      author_name: string;
+      author_email: string;
+      content: string;
+    } | null = null;
 
     // If post is not provided but parent is, get post_id from parent comment
-    if (!post && parent) {
-      const parentComment = await c.env.DB.prepare(
-        'SELECT post_id FROM comments WHERE id = ?'
+    if (!postId && parentId) {
+      parentCommentRecord = await c.env.DB.prepare(
+        'SELECT id, post_id, author_name, author_email, content FROM comments WHERE id = ?'
       )
-        .bind(parent)
+        .bind(parentId)
         .first();
 
-      if (parentComment) {
-        post = parentComment.post_id;
+      if (parentCommentRecord) {
+        postId = Number(parentCommentRecord.post_id);
       }
     }
 
     // Validate required fields
-    if (!post) {
+    if (!postId) {
       return createWPError('rest_missing_callback_param', 'Missing parameter(s): post', 400);
     }
 
-    if (!content || !content.trim()) {
+    if (!content || !String(content).trim()) {
       return createWPError('rest_missing_callback_param', 'Missing parameter(s): content', 400);
     }
 
@@ -269,9 +279,9 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
 
     // Verify post exists and comments are open
     const postRecord = await c.env.DB.prepare(
-      'SELECT id, slug, comment_status FROM posts WHERE id = ? AND post_type = ?'
+      'SELECT id, slug, title, comment_status FROM posts WHERE id = ? AND post_type = ?'
     )
-      .bind(post, 'post')
+      .bind(postId, 'post')
       .first();
 
     if (!postRecord) {
@@ -283,14 +293,16 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
     }
 
     // Verify parent comment exists if provided
-    if (parent) {
-      const parentComment = await c.env.DB.prepare(
-        'SELECT id FROM comments WHERE id = ? AND post_id = ?'
-      )
-        .bind(parent, post)
-        .first();
+    if (parentId) {
+      if (!parentCommentRecord) {
+        parentCommentRecord = await c.env.DB.prepare(
+          'SELECT id, post_id, author_name, author_email, content FROM comments WHERE id = ?'
+        )
+          .bind(parentId)
+          .first();
+      }
 
-      if (!parentComment) {
+      if (!parentCommentRecord || Number(parentCommentRecord.post_id) !== postId) {
         return createWPError('rest_comment_invalid_parent', 'Invalid parent comment ID.', 400);
       }
     }
@@ -311,13 +323,13 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      post,
-      parent || 0,
+      postId,
+      parentId,
       commentAuthorName,
       commentAuthorEmail,
       commentAuthorUrl || '',
       authorIp,
-      content,
+      String(content).trim(),
       commentStatus,
       userId,
       now
@@ -327,7 +339,7 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
 
     // Update comment count
     await c.env.DB.prepare('UPDATE posts SET comment_count = comment_count + 1 WHERE id = ?')
-      .bind(post)
+      .bind(postId)
       .run();
 
     // Get the created comment
@@ -348,6 +360,19 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
 
     // Trigger webhook for comment creation
     await sendWebhook(c.env, 'comment.created', formattedComment);
+
+    c.executionCtx.waitUntil(
+      sendCommentNotifications(c.env, {
+        comment: newComment as Comment,
+        parentComment: parentCommentRecord,
+        post: {
+          id: postId,
+          slug: newComment.post_slug,
+          title: newComment.post_title || postRecord.title
+        },
+        commentLink: formattedComment.link
+      })
+    );
 
     return c.json(formattedComment, 201);
   } catch (error: any) {

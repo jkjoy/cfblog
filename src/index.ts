@@ -1189,7 +1189,78 @@ app.get('/wp-admin', (c) => {
           moments: { title: '动态', allMoments: '所有动态', addNew: '添加动态', createNew: '创建新动态', editMoment: '编辑动态', momentContent: '动态内容', mediaUrls: '媒体 URL', noMoments: '还没有动态。', createMoment: '创建动态', updateMoment: '更新动态', deleteConfirm: '确定要删除这条动态吗？', whatOnMind: '分享你的想法...' },
           comments: { title: '评论', allComments: '所有评论', author: '作者', comment: '评论', post: '文章', noComments: '未找到评论。', noEmail: '无邮箱', approve: '批准', markAsSpam: '标记为垃圾', reply: '回复', replyTo: '回复评论', replyContent: '回复内容', sendReply: '发送回复', editComment: '编辑评论', deleteConfirm: '确定要删除这条评论吗？' },
           links: { title: '友情链接', allLinks: '所有链接', addNew: '添加链接', createNew: '创建新链接', editLink: '编辑链接', siteName: '网站名称', siteUrl: '网站地址', linkDescription: '链接描述', avatarUrl: '头像 URL', linkCategory: '链接分类', target: '打开方式', visible: '可见', sortOrder: '排序', noLinks: '还没有链接。', createLink: '创建链接', updateLink: '更新链接', deleteConfirm: '确定要删除这个链接吗？', manageCategories: '管理分类', lowerFirst: '数字越小排序越靠前' },
-          settings: { title: '网站设置', language: '界面语言', languageHint: '选择后台管理界面的显示语言', siteTitle: '网站标题', siteDescription: '网站描述', siteKeywords: '网站关键词', siteAuthor: '网站作者', siteFavicon: '网站图标', siteLogo: '网站Logo', siteIcp: 'ICP备案号', footerText: '页脚文本', webhookUrl: 'Webhook地址', webhookSecret: 'Webhook密钥', webhookEvents: 'Webhook事件', saveSettings: '保存设置', settingsSaved: '设置已保存！' },
+          settings: {
+            title: '网站设置',
+            language: '界面语言',
+            languageHint: '选择后台管理界面的显示语言',
+            siteTitle: '网站标题',
+            siteTitleHint: '将显示在浏览器标题栏和站点页头中。',
+            siteUrl: '网站地址',
+            siteUrlHint: '填写站点完整 URL，不要包含末尾斜杠。它也会作为 WordPress API 的 home URL。',
+            adminEmail: '管理员邮箱',
+            adminEmailHint: '该邮箱将用于接收后台通知。',
+            emailNotifications: '邮件通知',
+            fromName: '发件人名称',
+            fromNameHint: '通知邮件中显示的发件人名称。',
+            fromEmail: '发件邮箱',
+            fromEmailHint: '请填写已在 Resend 中验证域名下的发件地址。',
+            enableMailNotifications: '启用邮件通知',
+            enableMailNotificationsHint: '需要先在 Worker 中配置 <code>RESEND_API_KEY</code> Secret。',
+            notifyAdminOnComment: '有新评论时通知管理员',
+            notifyCommenterOnReply: '有人回复评论时通知原评论者',
+            siteDescription: '网站描述',
+            siteDescriptionHint: '用于 SEO 描述信息。',
+            siteKeywords: '网站关键词',
+            siteKeywordsHint: '使用逗号分隔多个关键词，用于 SEO。',
+            siteAuthor: '网站作者',
+            siteFavicon: '网站图标',
+            siteFaviconHint: '网站 favicon 地址，推荐 32x32。',
+            siteLogo: '网站 Logo',
+            siteLogoHint: '网站 Logo 图片地址。',
+            siteNotice: '网站公告',
+            siteNoticeHint: '显示在前台侧边栏公告卡片中，支持多行文本。',
+            siteNoticePlaceholder: '每行一段公告内容',
+            siteIcp: 'ICP备案号',
+            siteIcpHint: '仅中国大陆站点需要填写。',
+            siteIcpPlaceholder: '京ICP备xxxxx号',
+            footerText: '页脚文本',
+            footerTextHint: '显示在每个页面底部，支持 HTML。',
+            headHtml: '自定义 Head HTML',
+            headHtmlHint: '将插入到站点 <head> 中，可用于分析脚本、自定义 CSS 或 meta 标签。',
+            socialContacts: '社交联系方式',
+            email: '邮箱',
+            socialTelegramPlaceholder: '@username 或 https://t.me/username',
+            socialXPlaceholder: '@username 或 https://x.com/username',
+            socialMastodonPlaceholder: '完整主页地址',
+            socialQqPlaceholder: 'QQ号码',
+            webhookSection: 'Webhook 设置',
+            webhookUrl: 'Webhook 地址',
+            webhookUrlHint: 'Webhook 事件推送地址，留空则关闭 Webhook。',
+            webhookSecret: 'Webhook 密钥',
+            webhookSecretHint: '用于 HMAC-SHA256 签名，签名会通过 <code>X-Webhook-Signature</code> 请求头发送。',
+            webhookSecretPlaceholder: '请输入密钥',
+            webhookEvents: 'Webhook 事件',
+            webhookEventsSelect: '选择要触发 Webhook 的事件：',
+            webhookEventPostCreated: '文章创建为草稿',
+            webhookEventPostUpdated: '文章更新',
+            webhookEventPostPublished: '文章发布',
+            webhookEventPostDeleted: '文章删除',
+            webhookEventCommentCreated: '评论创建',
+            webhookEventCommentUpdated: '评论更新',
+            webhookEventCommentDeleted: '评论删除',
+            webhookEventsHint: '选择哪些事件会触发 Webhook。全部不勾选则不发送。',
+            webhookRecommended: '部署推荐：',
+            webhookTipsTitle: 'Webhook 提示：',
+            webhookTipDeploy: '对于 Vercel/Cloudflare Pages 部署：建议只勾选 post.published 和 post.updated，避免不必要的构建。',
+            webhookTipPublish: '创建并发布文章：只会触发 post.published，避免重复。',
+            webhookTipDraft: '保存草稿：触发 post.created。',
+            webhookTipDraftToPublish: '草稿发布：触发 post.published。',
+            webhookTipUpdatePublished: '更新已发布文章：触发 post.updated。',
+            saveSettings: '保存设置',
+            settingsSaved: '设置已保存！',
+            saveFailed: '保存设置失败：',
+            loadFailed: '加载设置失败。'
+          },
           dashboard: { welcome: '欢迎来到', subtitle: '基于 Cloudflare Workers、D1 和 R2 的 WordPress 风格无头博客', stats: { posts: '文章', pages: '页面', comments: '评论', categories: '分类', tags: '标签', media: '媒体', links: '链接', users: '用户', moments: '动态' } },
           messages: { loading: '加载中...', saving: '保存中...', saved: '已保存', created: '创建成功！', updated: '更新成功！', deleted: '删除成功！', uploaded: '上传成功！', failed: '操作失败', error: '发生错误', confirm: '确认', cancel: '取消' }
         },
@@ -1207,7 +1278,78 @@ app.get('/wp-admin', (c) => {
           moments: { title: 'Moments', allMoments: 'All Moments', addNew: 'Add New', createNew: 'Create New Moment', editMoment: 'Edit Moment', momentContent: 'Moment Content', mediaUrls: 'Media URLs', noMoments: 'No moments yet.', createMoment: 'Create Moment', updateMoment: 'Update Moment', deleteConfirm: 'Are you sure you want to delete this moment?', whatOnMind: "What's on your mind?" },
           comments: { title: 'Comments', allComments: 'All Comments', author: 'Author', comment: 'Comment', post: 'Post', noComments: 'No comments found.', noEmail: 'No email', approve: 'Approve', markAsSpam: 'Mark as Spam', reply: 'Reply', replyTo: 'Reply to Comment', replyContent: 'Reply Content', sendReply: 'Send Reply', editComment: 'Edit Comment', deleteConfirm: 'Are you sure you want to delete this comment?' },
           links: { title: 'Links', allLinks: 'All Links', addNew: 'Add New', createNew: 'Create New Link', editLink: 'Edit Link', siteName: 'Site Name', siteUrl: 'Site URL', linkDescription: 'Link Description', avatarUrl: 'Avatar URL', linkCategory: 'Link Category', target: 'Target', visible: 'Visible', sortOrder: 'Sort Order', noLinks: 'No links yet.', createLink: 'Create Link', updateLink: 'Update Link', deleteConfirm: 'Are you sure you want to delete this link?', manageCategories: 'Manage Categories', lowerFirst: 'Lower numbers appear first' },
-          settings: { title: 'Site Settings', language: 'Interface Language', languageHint: 'Choose the display language for admin interface', siteTitle: 'Site Title', siteDescription: 'Site Description', siteKeywords: 'Site Keywords', siteAuthor: 'Site Author', siteFavicon: 'Site Favicon', siteLogo: 'Site Logo', siteIcp: 'ICP Number', footerText: 'Footer Text', webhookUrl: 'Webhook URL', webhookSecret: 'Webhook Secret', webhookEvents: 'Webhook Events', saveSettings: 'Save Settings', settingsSaved: 'Settings saved!' },
+          settings: {
+            title: 'Site Settings',
+            language: 'Interface Language',
+            languageHint: 'Choose the display language for admin interface',
+            siteTitle: 'Site Title',
+            siteTitleHint: 'This will be displayed in the browser title bar and site header.',
+            siteUrl: 'Site URL',
+            siteUrlHint: 'Enter the full site URL without a trailing slash. It is also used as the home URL in the WordPress API.',
+            adminEmail: 'Admin Email',
+            adminEmailHint: 'This email will be used for administrative notifications.',
+            emailNotifications: 'Email Notifications',
+            fromName: 'From Name',
+            fromNameHint: 'The sender name shown in notification emails.',
+            fromEmail: 'From Email',
+            fromEmailHint: 'Use a sender address from a domain that has already been verified in Resend.',
+            enableMailNotifications: 'Enable email notifications',
+            enableMailNotificationsHint: 'Requires the <code>RESEND_API_KEY</code> Worker secret to be configured.',
+            notifyAdminOnComment: 'Notify admin when a new comment is submitted',
+            notifyCommenterOnReply: 'Notify the original commenter when someone replies',
+            siteDescription: 'Site Description',
+            siteDescriptionHint: 'Used for the SEO meta description.',
+            siteKeywords: 'Site Keywords',
+            siteKeywordsHint: 'Comma-separated keywords for SEO.',
+            siteAuthor: 'Site Author',
+            siteFavicon: 'Site Favicon',
+            siteFaviconHint: 'URL to your site favicon. Recommended: 32x32.',
+            siteLogo: 'Site Logo',
+            siteLogoHint: 'URL to your site logo image.',
+            siteNotice: 'Site Notice',
+            siteNoticeHint: 'Displayed in the public site notice card and supports multiple lines.',
+            siteNoticePlaceholder: 'One notice per line',
+            siteIcp: 'ICP Number',
+            siteIcpHint: 'Only needed for websites in mainland China.',
+            siteIcpPlaceholder: 'ICP filing number',
+            footerText: 'Footer Text',
+            footerTextHint: 'Displayed at the bottom of every page. HTML is supported.',
+            headHtml: 'Custom Head HTML',
+            headHtmlHint: 'Inserted into the site <head>. Useful for analytics, custom CSS, or meta tags.',
+            socialContacts: 'Social Contacts',
+            email: 'Email',
+            socialTelegramPlaceholder: '@username or https://t.me/username',
+            socialXPlaceholder: '@username or https://x.com/username',
+            socialMastodonPlaceholder: 'Full profile URL',
+            socialQqPlaceholder: 'QQ number',
+            webhookSection: 'Webhook Settings',
+            webhookUrl: 'Webhook URL',
+            webhookUrlHint: 'Webhook delivery URL. Leave empty to disable webhooks.',
+            webhookSecret: 'Webhook Secret',
+            webhookSecretHint: 'Used to sign payloads with HMAC-SHA256. The signature is sent in the <code>X-Webhook-Signature</code> header.',
+            webhookSecretPlaceholder: 'Enter a secret key',
+            webhookEvents: 'Webhook Events',
+            webhookEventsSelect: 'Select events to trigger webhook:',
+            webhookEventPostCreated: 'Post saved as draft',
+            webhookEventPostUpdated: 'Post updated',
+            webhookEventPostPublished: 'Post published',
+            webhookEventPostDeleted: 'Post deleted',
+            webhookEventCommentCreated: 'Comment created',
+            webhookEventCommentUpdated: 'Comment updated',
+            webhookEventCommentDeleted: 'Comment deleted',
+            webhookEventsHint: 'Choose which events should trigger the webhook. Leave all unchecked to disable webhooks.',
+            webhookRecommended: 'Recommended for deployment:',
+            webhookTipsTitle: 'Webhook Tips:',
+            webhookTipDeploy: 'For Vercel/Cloudflare Pages deployment, only select post.published and post.updated to avoid unnecessary builds.',
+            webhookTipPublish: 'Creating and publishing a post only triggers post.published, which avoids duplicates.',
+            webhookTipDraft: 'Saving as draft triggers post.created.',
+            webhookTipDraftToPublish: 'Publishing a draft triggers post.published.',
+            webhookTipUpdatePublished: 'Updating a published post triggers post.updated.',
+            saveSettings: 'Save Settings',
+            settingsSaved: 'Settings saved!',
+            saveFailed: 'Failed to save settings:',
+            loadFailed: 'Failed to load settings.'
+          },
           dashboard: { welcome: 'Welcome to', subtitle: 'Your WordPress-like headless blog powered by Cloudflare Workers, D1, and R2', stats: { posts: 'Posts', pages: 'Pages', comments: 'Comments', categories: 'Categories', tags: 'Tags', media: 'Media', links: 'Links', users: 'Users', moments: 'Moments' } },
           messages: { loading: 'Loading...', saving: 'Saving...', saved: 'Saved', created: 'Created successfully!', updated: 'Updated successfully!', deleted: 'Deleted successfully!', uploaded: 'Uploaded successfully!', failed: 'Operation failed', error: 'An error occurred', confirm: 'Confirm', cancel: 'Cancel' }
         }
@@ -5057,186 +5199,230 @@ https://example.com/image2.jpg"></textarea>
 
             <form id="settings-form" style="background: white; padding: 30px; border: 1px solid #c3c4c7; border-radius: 4px;">
               <div class="form-group">
-                <label>Site 标题 *</label>
+                <label>\${i18n.t('settings.siteTitle')} *</label>
                 <input type="text" name="site_title" value="\${settings.site_title || ''}" required>
-                <small style="color: #646970; display: block; margin-top: 5px;">This will be displayed in the browser title bar and header.</small>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteTitleHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>网站地址 *</label>
+                <label>\${i18n.t('settings.siteUrl')} *</label>
                 <input type="url" name="site_url" value="\${settings.site_url || ''}" required placeholder="https://example.com">
                 <small style="color: #646970; display: block; margin-top: 5px;">
-                  The full URL of your site (no trailing slash). This value is also used as the home URL in the WordPress API.
+                  \${i18n.t('settings.siteUrlHint')}
                 </small>
               </div>
 
               <div class="form-group">
-                <label>Admin Email *</label>
+                <label>\${i18n.t('settings.adminEmail')} *</label>
                 <input type="email" name="admin_email" value="\${settings.admin_email || ''}" required placeholder="admin@example.com">
-                <small style="color: #646970; display: block; margin-top: 5px;">This email will be used for administrative notifications.</small>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.adminEmailHint')}</small>
+              </div>
+
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
+
+              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.emailNotifications')}</h3>
+
+              <div class="form-group">
+                <label>\${i18n.t('settings.fromName')}</label>
+                <input type="text" name="mail_from_name" value="\${settings.mail_from_name || settings.site_title || ''}" placeholder="CFBlog">
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.fromNameHint')}
+                </small>
               </div>
 
               <div class="form-group">
-                <label>网站描述</label>
+                <label>\${i18n.t('settings.fromEmail')}</label>
+                <input type="email" name="mail_from_email" value="\${settings.mail_from_email || ''}" placeholder="notifications@example.com">
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.fromEmailHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+                  <input type="checkbox" name="mail_notifications_enabled" value="1" \${(settings.mail_notifications_enabled || '0') === '1' ? 'checked' : ''} style="width: auto;">
+                  \${i18n.t('settings.enableMailNotifications')}
+                </label>
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.enableMailNotificationsHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+                  <input type="checkbox" name="notify_admin_on_comment" value="1" \${(settings.notify_admin_on_comment || '1') === '1' ? 'checked' : ''} style="width: auto;">
+                  \${i18n.t('settings.notifyAdminOnComment')}
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+                  <input type="checkbox" name="notify_commenter_on_reply" value="1" \${(settings.notify_commenter_on_reply || '1') === '1' ? 'checked' : ''} style="width: auto;">
+                  \${i18n.t('settings.notifyCommenterOnReply')}
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label>\${i18n.t('settings.siteDescription')}</label>
                 <textarea name="site_description" style="min-height: 100px;">\${settings.site_description || ''}</textarea>
-                <small style="color: #646970; display: block; margin-top: 5px;">Used for SEO meta description.</small>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteDescriptionHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>Site Keywords</label>
+                <label>\${i18n.t('settings.siteKeywords')}</label>
                 <input type="text" name="site_keywords" value="\${settings.site_keywords || ''}" placeholder="blog, tech, programming">
-                <small style="color: #646970; display: block; margin-top: 5px;">Comma-separated keywords for SEO.</small>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteKeywordsHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>Site Author</label>
+                <label>\${i18n.t('settings.siteAuthor')}</label>
                 <input type="text" name="site_author" value="\${settings.site_author || ''}">
               </div>
 
               <div class="form-group">
-                <label>Favicon URL</label>
+                <label>\${i18n.t('settings.siteFavicon')}</label>
                 <input type="url" name="site_favicon" value="\${settings.site_favicon || ''}" placeholder="https://example.com/favicon.ico">
-                <small style="color: #646970; display: block; margin-top: 5px;">URL to your site favicon (.ico, .png). Recommended: 32x32px.</small>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteFaviconHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>Logo URL</label>
+                <label>\${i18n.t('settings.siteLogo')}</label>
                 <input type="url" name="site_logo" value="\${settings.site_logo || ''}" placeholder="https://example.com/logo.png">
-                <small style="color: #646970; display: block; margin-top: 5px;">URL to your site logo image.</small>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteLogoHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>网站公告</label>
-                <textarea name="site_notice" style="min-height: 100px;" placeholder="每行一段公告内容">\${settings.site_notice || ''}</textarea>
-                <small style="color: #646970; display: block; margin-top: 5px;">显示在前台侧边栏公告卡片中，支持多行文本。</small>
+                <label>\${i18n.t('settings.siteNotice')}</label>
+                <textarea name="site_notice" style="min-height: 100px;" placeholder="\${i18n.t('settings.siteNoticePlaceholder')}">\${settings.site_notice || ''}</textarea>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteNoticeHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>ICP Beian (备案号)</label>
-                <input type="text" name="site_icp" value="\${settings.site_icp || ''}" placeholder="京ICP备xxxxx号">
-                <small style="color: #646970; display: block; margin-top: 5px;">For Chinese sites only.</small>
+                <label>\${i18n.t('settings.siteIcp')}</label>
+                <input type="text" name="site_icp" value="\${settings.site_icp || ''}" placeholder="\${i18n.t('settings.siteIcpPlaceholder')}">
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteIcpHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>Footer Text</label>
+                <label>\${i18n.t('settings.footerText')}</label>
                 <textarea name="site_footer_text" style="min-height: 80px;">\${settings.site_footer_text || ''}</textarea>
-                <small style="color: #646970; display: block; margin-top: 5px;">Displayed at the bottom of every page. HTML is supported.</small>
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.footerTextHint')}</small>
               </div>
 
               <div class="form-group">
-                <label>Custom Head HTML</label>
+                <label>\${i18n.t('settings.headHtml')}</label>
                 <textarea name="head_html" style="min-height: 120px; font-family: monospace; font-size: 13px;">\${settings.head_html || ''}</textarea>
                 <small style="color: #646970; display: block; margin-top: 5px;">
-                  Custom HTML code to be inserted into the &lt;head&gt; section of your site. Useful for analytics, custom CSS, or meta tags.
+                  \${i18n.t('settings.headHtmlHint')}
                 </small>
               </div>
 
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
 
-              <h3 style="margin-bottom: 20px; color: #1d2327;">社交联系方式</h3>
+              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.socialContacts')}</h3>
 
               <div class="form-group">
                 <label>Telegram</label>
-                <input type="text" name="social_telegram" value="\${settings.social_telegram || ''}" placeholder="@username 或 https://t.me/username">
+                <input type="text" name="social_telegram" value="\${settings.social_telegram || ''}" placeholder="\${i18n.t('settings.socialTelegramPlaceholder')}">
               </div>
 
               <div class="form-group">
                 <label>X</label>
-                <input type="text" name="social_x" value="\${settings.social_x || ''}" placeholder="@username 或 https://x.com/username">
+                <input type="text" name="social_x" value="\${settings.social_x || ''}" placeholder="\${i18n.t('settings.socialXPlaceholder')}">
               </div>
 
               <div class="form-group">
                 <label>Mastodon</label>
-                <input type="text" name="social_mastodon" value="\${settings.social_mastodon || ''}" placeholder="完整主页地址">
+                <input type="text" name="social_mastodon" value="\${settings.social_mastodon || ''}" placeholder="\${i18n.t('settings.socialMastodonPlaceholder')}">
               </div>
 
               <div class="form-group">
-                <label>Email</label>
+                <label>\${i18n.t('settings.email')}</label>
                 <input type="email" name="social_email" value="\${settings.social_email || ''}" placeholder="you@example.com">
               </div>
 
               <div class="form-group">
                 <label>QQ</label>
-                <input type="text" name="social_qq" value="\${settings.social_qq || ''}" placeholder="QQ号码">
+                <input type="text" name="social_qq" value="\${settings.social_qq || ''}" placeholder="\${i18n.t('settings.socialQqPlaceholder')}">
               </div>
 
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
 
-              <h3 style="margin-bottom: 20px; color: #1d2327;">Webhook Settings</h3>
+              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.webhookSection')}</h3>
 
               <div class="form-group">
-                <label>Webhook URL</label>
+                <label>\${i18n.t('settings.webhookUrl')}</label>
                 <input type="url" name="webhook_url" value="\${settings.webhook_url || ''}" placeholder="https://example.com/webhook">
                 <small style="color: #646970; display: block; margin-top: 5px;">
-                  The URL where webhook events will be sent. Leave empty to disable webhooks.
+                  \${i18n.t('settings.webhookUrlHint')}
                 </small>
               </div>
 
               <div class="form-group">
-                <label>Webhook Secret</label>
-                <input type="password" name="webhook_secret" value="\${settings.webhook_secret || ''}" placeholder="Enter a secret key">
+                <label>\${i18n.t('settings.webhookSecret')}</label>
+                <input type="password" name="webhook_secret" value="\${settings.webhook_secret || ''}" placeholder="\${i18n.t('settings.webhookSecretPlaceholder')}">
                 <small style="color: #646970; display: block; margin-top: 5px;">
-                  Secret key used to sign webhook payloads (HMAC-SHA256). The signature will be sent in the <code>X-Webhook-Signature</code> header.
+                  \${i18n.t('settings.webhookSecretHint')}
                 </small>
               </div>
 
               <div class="form-group">
-                <label>Webhook Events</label>
+                <label>\${i18n.t('settings.webhookEvents')}</label>
                 <div style="border: 1px solid #8c8f94; border-radius: 3px; padding: 15px; background: #f9f9f9;">
                   <div style="margin-bottom: 10px;">
-                    <strong style="font-size: 13px; color: #2c3338;">Select events to trigger webhook:</strong>
+                    <strong style="font-size: 13px; color: #2c3338;">\${i18n.t('settings.webhookEventsSelect')}</strong>
                   </div>
                   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                     <label style="display: flex; align-items: center; padding: 5px 0; font-weight: 400;">
                       <input type="checkbox" name="webhook_events" value="post.created" \${(settings.webhook_events || '').includes('post.created') ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                      post.created (文章创建为草稿)
+                      post.created (\${i18n.t('settings.webhookEventPostCreated')})
                     </label>
                     <label style="display: flex; align-items: center; padding: 5px 0; font-weight: 400;">
                       <input type="checkbox" name="webhook_events" value="post.updated" \${(settings.webhook_events || '').includes('post.updated') ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                      post.updated (文章更新)
+                      post.updated (\${i18n.t('settings.webhookEventPostUpdated')})
                     </label>
                     <label style="display: flex; align-items: center; padding: 5px 0; font-weight: 400;">
                       <input type="checkbox" name="webhook_events" value="post.published" \${(settings.webhook_events || '').includes('post.published') ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                      post.published (文章发布)
+                      post.published (\${i18n.t('settings.webhookEventPostPublished')})
                     </label>
                     <label style="display: flex; align-items: center; padding: 5px 0; font-weight: 400;">
                       <input type="checkbox" name="webhook_events" value="post.deleted" \${(settings.webhook_events || '').includes('post.deleted') ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                      post.deleted (文章删除)
+                      post.deleted (\${i18n.t('settings.webhookEventPostDeleted')})
                     </label>
                     <label style="display: flex; align-items: center; padding: 5px 0; font-weight: 400;">
                       <input type="checkbox" name="webhook_events" value="comment.created" \${(settings.webhook_events || '').includes('comment.created') ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                      comment.created (评论创建)
+                      comment.created (\${i18n.t('settings.webhookEventCommentCreated')})
                     </label>
                     <label style="display: flex; align-items: center; padding: 5px 0; font-weight: 400;">
                       <input type="checkbox" name="webhook_events" value="comment.updated" \${(settings.webhook_events || '').includes('comment.updated') ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                      comment.updated (评论更新)
+                      comment.updated (\${i18n.t('settings.webhookEventCommentUpdated')})
                     </label>
                     <label style="display: flex; align-items: center; padding: 5px 0; font-weight: 400;">
                       <input type="checkbox" name="webhook_events" value="comment.deleted" \${(settings.webhook_events || '').includes('comment.deleted') ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                      comment.deleted (评论删除)
+                      comment.deleted (\${i18n.t('settings.webhookEventCommentDeleted')})
                     </label>
                   </div>
                 </div>
                 <small style="color: #646970; display: block; margin-top: 5px;">
-                  Select which events should trigger the webhook. Leave all unchecked to disable webhooks.
-                  <strong>Recommended for deployment:</strong> post.published, post.updated
+                  \${i18n.t('settings.webhookEventsHint')}
+                  <strong>\${i18n.t('settings.webhookRecommended')}</strong> post.published, post.updated
                 </small>
               </div>
 
               <div style="background: #f0f6fc; border: 1px solid #0969da; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
-                <strong style="color: #0969da;">💡 Webhook Tips:</strong>
+                <strong style="color: #0969da;">💡 \${i18n.t('settings.webhookTipsTitle')}</strong>
                 <ul style="margin: 10px 0 0 20px; color: #646970; font-size: 13px; line-height: 1.6;">
-                  <li><strong>For Vercel/Cloudflare Pages deployment:</strong> Only select <code>post.published</code> and <code>post.updated</code> to avoid unnecessary builds</li>
-                  <li><strong>Creating & publishing a post:</strong> Only triggers <code>post.published</code> (avoids duplicate)</li>
-                  <li><strong>Saving as draft:</strong> Triggers <code>post.created</code></li>
-                  <li><strong>Draft to publish:</strong> Triggers <code>post.published</code></li>
-                  <li><strong>Updating published post:</strong> Triggers <code>post.updated</code></li>
+                  <li>\${i18n.t('settings.webhookTipDeploy')}</li>
+                  <li>\${i18n.t('settings.webhookTipPublish')}</li>
+                  <li>\${i18n.t('settings.webhookTipDraft')}</li>
+                  <li>\${i18n.t('settings.webhookTipDraftToPublish')}</li>
+                  <li>\${i18n.t('settings.webhookTipUpdatePublished')}</li>
                 </ul>
               </div>
 
               <div id="settings-message" class="隐藏" style="margin-bottom: 20px;"></div>
 
-              <button type="submit" class="button" style="width: 100%;">保存设置</button>
+              <button type="submit" class="button" style="width: 100%;">\${i18n.t('settings.saveSettings')}</button>
             </form>
           </div>
         \`;
@@ -5252,6 +5438,11 @@ https://example.com/image2.jpg"></textarea>
             site_title: formData.get('site_title'),
             site_url: formData.get('site_url'),
             admin_email: formData.get('admin_email'),
+            mail_from_name: formData.get('mail_from_name'),
+            mail_from_email: formData.get('mail_from_email'),
+            mail_notifications_enabled: formData.get('mail_notifications_enabled') ? '1' : '0',
+            notify_admin_on_comment: formData.get('notify_admin_on_comment') ? '1' : '0',
+            notify_commenter_on_reply: formData.get('notify_commenter_on_reply') ? '1' : '0',
             site_description: formData.get('site_description'),
             site_keywords: formData.get('site_keywords'),
             site_author: formData.get('site_author'),
@@ -5287,7 +5478,7 @@ https://example.com/image2.jpg"></textarea>
 
             if (response.ok) {
               messageDiv.className = 'success-message';
-              messageDiv.textContent = 'Settings saved successfully!';
+              messageDiv.textContent = i18n.t('settings.settingsSaved');
 
               // Reload settings after 1 second
               setTimeout(() => {
@@ -5296,20 +5487,20 @@ https://example.com/image2.jpg"></textarea>
             } else {
               const error = await response.json();
               messageDiv.className = 'error-message';
-              messageDiv.textContent = 'Failed to save settings: ' + error.message;
+              messageDiv.textContent = i18n.t('settings.saveFailed') + ' ' + error.message;
             }
           } catch (error) {
             console.error('Failed to save settings:', error);
             const messageDiv = document.getElementById('settings-message');
             messageDiv.classList.remove('隐藏');
             messageDiv.className = 'error-message';
-            messageDiv.textContent = 'Failed to save settings. Please try again.';
+            messageDiv.textContent = i18n.t('settings.saveFailed') + ' ' + (error.message || '');
           }
         });
       } catch (error) {
         console.error('加载失败 settings:', error);
         const container = document.getElementById('settings-container');
-        container.innerHTML = '<div class="error-message">加载失败 settings.</div>';
+        container.innerHTML = '<div class="error-message">' + i18n.t('settings.loadFailed') + '</div>';
       }
     }
 

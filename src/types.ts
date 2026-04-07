@@ -5,6 +5,7 @@ export interface Env {
   MEDIA: R2Bucket;
   AI: Ai;
   JWT_SECRET: string;
+  RESEND_API_KEY?: string;
   ADMIN_EMAIL: string;
   SITE_NAME: string;
   SITE_URL: string;

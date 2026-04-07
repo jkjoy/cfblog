@@ -37,7 +37,15 @@ settings.get('/', async (c) => {
     `).all()
 
     // 敏感字段列表，不应返回给前端
-    const sensitiveFields = ['webhook_secret', 'webhook_url']
+    const sensitiveFields = [
+      'webhook_secret',
+      'webhook_url',
+      'mail_notifications_enabled',
+      'notify_admin_on_comment',
+      'notify_commenter_on_reply',
+      'mail_from_name',
+      'mail_from_email'
+    ]
 
     // 将结果转换为对象格式，过滤敏感字段
     const settingsObj: Record<string, string> = {}
