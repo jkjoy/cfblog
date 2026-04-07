@@ -548,7 +548,7 @@ article.vh-article-main > main pre::after {
   content: attr(data-code-lang);
   position: absolute;
   top: 0.78rem;
-  right: 1rem;
+  right: 4.8rem;
   padding: 0.16rem 0.52rem;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.16);
@@ -575,6 +575,34 @@ article.vh-article-main > main :not(pre) > code {
   background: rgba(15, 23, 42, 0.08);
   color: #0f766e;
   font-size: 0.84rem;
+}
+
+article.vh-article-main > main .code-copy-button {
+  position: absolute;
+  top: 0.72rem;
+  right: 1rem;
+  box-sizing: border-box;
+  padding: 0.28rem 0.64rem;
+  border: 1px solid rgba(203, 213, 225, 0.18);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.18s ease-in-out, border-color 0.18s ease-in-out, transform 0.18s ease-in-out;
+}
+
+article.vh-article-main > main .code-copy-button:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(203, 213, 225, 0.34);
+  transform: translateY(-1px);
+}
+
+article.vh-article-main > main .code-copy-button.is-copied {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.34);
+  color: #dcfce7;
 }
 
 section.vh-archive-main {
@@ -873,6 +901,43 @@ export const PUBLIC_SITE_JS = String.raw`(() => {
     const className = code?.className || '';
     const match = className.match(/language-([a-z0-9+#_-]+)/i) || className.match(/lang-([a-z0-9+#_-]+)/i);
     block.dataset.codeLang = match?.[1] || 'code';
+
+    const copyButton = document.createElement('button');
+    copyButton.type = 'button';
+    copyButton.className = 'code-copy-button';
+    copyButton.textContent = '复制';
+    copyButton.addEventListener('click', async () => {
+      const text = code?.textContent || block.textContent || '';
+      if (!text.trim()) {
+        return;
+      }
+
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'absolute';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          textarea.remove();
+        }
+
+        copyButton.textContent = '已复制';
+        copyButton.classList.add('is-copied');
+        window.setTimeout(() => {
+          copyButton.textContent = '复制';
+          copyButton.classList.remove('is-copied');
+        }, 1400);
+      } catch (error) {
+        console.error('copy failed', error);
+      }
+    });
+    block.appendChild(copyButton);
   });
 
   const filterSearchList = () => {

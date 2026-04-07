@@ -5111,6 +5111,26 @@ https://example.com/image2.jpg"></textarea>
                 <small style="color: #646970; display: block; margin-top: 5px;">显示在前台侧边栏公告卡片中，支持多行文本。</small>
               </div>
 
+              <div class="form-group">
+                <label>ICP Beian (备案号)</label>
+                <input type="text" name="site_icp" value="\${settings.site_icp || ''}" placeholder="京ICP备xxxxx号">
+                <small style="color: #646970; display: block; margin-top: 5px;">For Chinese sites only.</small>
+              </div>
+
+              <div class="form-group">
+                <label>Footer Text</label>
+                <textarea name="site_footer_text" style="min-height: 80px;">\${settings.site_footer_text || ''}</textarea>
+                <small style="color: #646970; display: block; margin-top: 5px;">Displayed at the bottom of every page. HTML is supported.</small>
+              </div>
+
+              <div class="form-group">
+                <label>Custom Head HTML</label>
+                <textarea name="head_html" style="min-height: 120px; font-family: monospace; font-size: 13px;">\${settings.head_html || ''}</textarea>
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  Custom HTML code to be inserted into the &lt;head&gt; section of your site. Useful for analytics, custom CSS, or meta tags.
+                </small>
+              </div>
+
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
 
               <h3 style="margin-bottom: 20px; color: #1d2327;">社交联系方式</h3>
@@ -5138,26 +5158,6 @@ https://example.com/image2.jpg"></textarea>
               <div class="form-group">
                 <label>QQ</label>
                 <input type="text" name="social_qq" value="\${settings.social_qq || ''}" placeholder="QQ号码">
-              </div>
-
-              <div class="form-group">
-                <label>ICP Beian (备案号)</label>
-                <input type="text" name="site_icp" value="\${settings.site_icp || ''}" placeholder="京ICP备xxxxx号">
-                <small style="color: #646970; display: block; margin-top: 5px;">For Chinese sites only.</small>
-              </div>
-
-              <div class="form-group">
-                <label>Footer Text</label>
-                <textarea name="site_footer_text" style="min-height: 80px;">\${settings.site_footer_text || ''}</textarea>
-                <small style="color: #646970; display: block; margin-top: 5px;">Displayed at the bottom of every page. HTML is supported.</small>
-              </div>
-
-              <div class="form-group">
-                <label>Custom Head HTML</label>
-                <textarea name="head_html" style="min-height: 120px; font-family: monospace; font-size: 13px;">\${settings.head_html || ''}</textarea>
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  Custom HTML code to be inserted into the &lt;head&gt; section of your site. Useful for analytics, custom CSS, or meta tags.
-                </small>
               </div>
 
               <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">

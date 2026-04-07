@@ -531,12 +531,8 @@ async function renderContentBySlug(c: AppContext): Promise<Response> {
         }),
         main: `
           <section class="vh-page vh-animation vh-animation-init">
-            ${renderPageHeader(detail.title, detail.description)}
+            ${renderPageHeader(detail.title, '')}
             <section class="vh-page-section">
-              <div class="meta-strip">
-                <span>${detail.dateLabel}</span>
-                <span>${escapeHtml(detail.author.name)}</span>
-              </div>
               ${detail.contentHtml}
             </section>
           </section>
@@ -2066,7 +2062,7 @@ function renderPageHeader(title: string, description: string): string {
   return `
     <header class="vh-page-header">
       <h1>${escapeHtml(title)}</h1>
-      <p>${escapeHtml(description)}</p>
+      ${description ? `<p>${escapeHtml(description)}</p>` : ''}
     </header>
   `;
 }
