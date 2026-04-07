@@ -1,5 +1,6 @@
 // Cloudflare Workers environment bindings
 export interface Env {
+  ASSETS: Fetcher;
   DB: D1Database;
   MEDIA: R2Bucket;
   AI: Ai;

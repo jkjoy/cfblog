@@ -1,0 +1,6 @@
+@import url('./SFMonoRegular/result.css');
+/* 鸿蒙字体分包 */
+@import url('./HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Regular/result.css');
+@import url('./HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Medium/result.css');
+@import url('./HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Bold/result.css');
+@import url('./HarmonyOS_Sans_SC/HarmonyOS_Sans_SC_Black/result.css');

@@ -25,3 +25,9 @@ binding = "AI"
 # Environment variables
 [vars]
 JWT_SECRET = "your-jwt-secret-here-change-in-production"
+
+[assets]
+binding = "ASSETS"
+directory = "./public"
+not_found_handling = "none"
+run_worker_first = true

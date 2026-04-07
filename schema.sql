@@ -176,6 +176,22 @@ CREATE TABLE IF NOT EXISTS moments (
     FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS moment_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    moment_id INTEGER NOT NULL,
+    parent_id INTEGER DEFAULT 0,
+    author_name TEXT NOT NULL,
+    author_email TEXT NOT NULL,
+    author_url TEXT,
+    author_ip TEXT,
+    content TEXT NOT NULL,
+    status TEXT DEFAULT 'approved' CHECK(status IN ('approved', 'pending', 'spam', 'trash')),
+    user_id INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Meta tables for extensibility
 CREATE TABLE IF NOT EXISTS post_meta (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -214,6 +230,9 @@ CREATE INDEX IF NOT EXISTS idx_links_sort ON links(sort_order);
 CREATE INDEX IF NOT EXISTS idx_moments_author ON moments(author_id);
 CREATE INDEX IF NOT EXISTS idx_moments_status ON moments(status);
 CREATE INDEX IF NOT EXISTS idx_moments_created ON moments(created_at);
+CREATE INDEX IF NOT EXISTS idx_moment_comments_moment ON moment_comments(moment_id);
+CREATE INDEX IF NOT EXISTS idx_moment_comments_parent ON moment_comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_moment_comments_status ON moment_comments(status);
 
 -- Insert default options
 INSERT OR IGNORE INTO options (option_name, option_value, autoload) VALUES
@@ -241,6 +260,12 @@ INSERT OR IGNORE INTO site_settings (setting_key, setting_value) VALUES
 ('site_author', 'CFBlog'),
 ('site_favicon', ''),
 ('site_logo', ''),
+('site_notice', ''),
+('social_telegram', ''),
+('social_x', ''),
+('social_mastodon', ''),
+('social_email', ''),
+('social_qq', ''),
 ('site_icp', ''),
 ('site_footer_text', '© 2024 CFBlog. Powered by Cloudflare Workers.'),
 ('head_html', ''),

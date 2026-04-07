@@ -1,7 +1,7 @@
 {
   "name": "cfblog",
-  "version": "1.0.0",
-  "description": "WordPress-like headless blog system using Cloudflare Workers + D1 + R2",
+  "version": "1.5.0",
+  "description": "WordPress-like integrated blog system using Cloudflare Workers + D1 + R2",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
@@ -11,17 +11,25 @@
     "db:init": "npx wrangler d1 execute cfblog-db --file=./schema.sql --remote",
     "db:migrate": "npx wrangler d1 migrations apply cfblog-db"
   },
-  "keywords": ["cloudflare", "workers", "blog", "wordpress", "headless"],
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "blog",
+    "wordpress",
+    "headless"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
-    "wrangler": "^3.94.0",
-    "typescript": "^5.7.2"
+    "less": "^4.6.4",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.94.0"
   },
   "dependencies": {
-    "hono": "^4.6.14",
     "bcryptjs": "^2.4.3",
-    "jose": "^5.9.6"
+    "hono": "^4.6.14",
+    "jose": "^5.9.6",
+    "marked": "^17.0.6"
   }
 }

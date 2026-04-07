@@ -19,7 +19,13 @@ export async function getSiteSettings(env: Env): Promise<Record<string, any>> {
       site_title: 'CFBlog',
       site_description: '基于 Cloudflare Workers + D1 + R2 构建的现代化博客系统',
       site_url: 'http://localhost:8787',
-      admin_email: 'admin@example.com'
+      admin_email: 'admin@example.com',
+      site_notice: '',
+      social_telegram: '',
+      social_x: '',
+      social_mastodon: '',
+      social_email: '',
+      social_qq: ''
     };
 
     for (const row of result.results as any[]) {
@@ -37,7 +43,13 @@ export async function getSiteSettings(env: Env): Promise<Record<string, any>> {
       site_title: 'CFBlog',
       site_description: '基于 Cloudflare Workers + D1 + R2 构建的现代化博客系统',
       site_url: 'http://localhost:8787',
-      admin_email: 'admin@example.com'
+      admin_email: 'admin@example.com',
+      site_notice: '',
+      social_telegram: '',
+      social_x: '',
+      social_mastodon: '',
+      social_email: '',
+      social_qq: ''
     };
   }
 }
@@ -849,4 +861,3 @@ Generate ONLY the excerpt text, nothing else:`
     return cleanContent.substring(0, 200) + (cleanContent.length > 200 ? '...' : '');
   }
 }
-

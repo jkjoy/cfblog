@@ -13,6 +13,7 @@ import comments from './routes/comments';
 import pages from './routes/pages';
 import settings from './routes/settings';
 import moments from './routes/moments';
+import { registerPublicSiteRoutes, renderPublicHome } from './public-site';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -28,6 +29,8 @@ app.use('*', cors({
 
 // Root endpoint - Simple landing page
 app.get('/', async (c) => {
+  return renderPublicHome(c);
+
   const siteSettings = await getSiteSettings(c.env);
   const apiUrl = siteSettings.site_url || 'http://localhost:8787';
 
@@ -3652,10 +3655,24 @@ app.get('/wp-admin', (c) => {
 
     async function loadCommentsList(status = 'all') {
       try {
-        const response = await fetch(API_BASE + '/comments?per_page=50&status=' + status, {
-          headers: { 'Authorization': 'Bearer ' + authToken }
-        });
-        const comments = await response.json();
+        const [postResponse, momentResponse] = await Promise.all([
+          fetch(API_BASE + '/comments?per_page=50&status=' + status, {
+            headers: { 'Authorization': 'Bearer ' + authToken }
+          }),
+          fetch(API_BASE + '/moments/comments/all?per_page=50&status=' + status, {
+            headers: { 'Authorization': 'Bearer ' + authToken }
+          })
+        ]);
+
+        const [postComments, momentComments] = await Promise.all([
+          postResponse.json(),
+          momentResponse.json()
+        ]);
+
+        const comments = [
+          ...(Array.isArray(postComments) ? postComments : []),
+          ...(Array.isArray(momentComments) ? momentComments : [])
+        ];
 
         const container = document.getElementById('comments-list');
         if (comments.length === 0) {
@@ -3663,9 +3680,30 @@ app.get('/wp-admin', (c) => {
           return;
         }
 
+        const sortedComments = comments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const commentMap = new Map();
+        const rootComments = [];
+
+        sortedComments.forEach(comment => {
+          comment.children = [];
+          comment.__key = (comment.type || 'comment') + ':' + comment.id;
+          comment.__parentKey = comment.parent ? (comment.type || 'comment') + ':' + comment.parent : '';
+          commentMap.set(comment.__key, comment);
+        });
+
+        sortedComments.forEach(comment => {
+          if (comment.parent && commentMap.has(comment.__parentKey)) {
+            commentMap.get(comment.__parentKey).children.push(comment);
+          } else {
+            rootComments.push(comment);
+          }
+        });
+
         // Recursive function to render comment and its children
         function renderComment(comment, depth = 0) {
           const indent = depth * 30; // 30px indent per level
+          const isMomentComment = comment.type === 'moment_comment';
+          const parentResourceId = isMomentComment ? comment.moment : (comment.post || comment.post_id);
           const commentHtml = \`
             <tr style="background: \${depth > 0 ? '#f6f7f7' : 'white'};">
               <td style="padding-left: \${indent + 10}px;">
@@ -3676,7 +3714,7 @@ app.get('/wp-admin', (c) => {
               <td style="max-width: 300px; overflow: 隐藏; text-overflow: ellipsis;">
                 \${comment.content.rendered.substring(0, 100)}...
               </td>
-              <td>\${comment.post_title || 'N/A'}</td>
+              <td>\${comment.post_title || (isMomentComment ? ('动态 #' + comment.moment) : 'N/A')}</td>
               <td>
                 <span style="padding: 3px 8px; background: \${
                   comment.status === 'approved' ? '#00a32a' :
@@ -3685,14 +3723,15 @@ app.get('/wp-admin', (c) => {
                 }; color: white; border-radius: 3px; font-size: 12px;">
                   \${translateStatus(comment.status)}
                 </span>
+                \${isMomentComment ? '<span style="margin-left: 8px; font-size: 12px; color: #2271b1;">动态</span>' : ''}
               </td>
               <td>\${new Date(comment.date).toLocaleDateString()}</td>
               <td class="actions">
-                \${comment.status !== 'approved' ? \`<a href="#" class="action-link" onclick="approveComment(\${comment.id}); return false;">\${i18n.t('comments.approve')}</a>\` : ''}
-                \${comment.status !== 'spam' ? \`<a href="#" class="action-link" onclick="markAsSpam(\${comment.id}); return false;">\${i18n.t('comments.markAsSpam')}</a>\` : ''}
-                <a href="#" class="action-link" onclick="replyToComment(\${comment.id}, \${comment.post_id}); return false;">\${i18n.t('comments.reply')}</a>
-                <a href="#" class="action-link" onclick="editComment(\${comment.id}); return false;">\${i18n.t('common.edit')}</a>
-                <a href="#" class="action-link delete" onclick="deleteComment(\${comment.id}); return false;">\${i18n.t('common.delete')}</a>
+                \${comment.status !== 'approved' ? \`<a href="#" class="action-link" onclick="approveUnifiedComment('\${comment.type || 'comment'}', \${parentResourceId}, \${comment.id}); return false;">\${i18n.t('comments.approve')}</a>\` : ''}
+                \${comment.status !== 'spam' ? \`<a href="#" class="action-link" onclick="markUnifiedCommentAsSpam('\${comment.type || 'comment'}', \${parentResourceId}, \${comment.id}); return false;">\${i18n.t('comments.markAsSpam')}</a>\` : ''}
+                <a href="#" class="action-link" onclick="replyToUnifiedComment('\${comment.type || 'comment'}', \${parentResourceId}, \${comment.id}); return false;">\${i18n.t('comments.reply')}</a>
+                <a href="#" class="action-link" onclick="editUnifiedComment('\${comment.type || 'comment'}', \${parentResourceId}, \${comment.id}); return false;">\${i18n.t('common.edit')}</a>
+                <a href="#" class="action-link delete" onclick="deleteUnifiedComment('\${comment.type || 'comment'}', \${parentResourceId}, \${comment.id}); return false;">\${i18n.t('common.delete')}</a>
               </td>
             </tr>
           \`;
@@ -3719,7 +3758,7 @@ app.get('/wp-admin', (c) => {
                 </tr>
               </thead>
               <tbody>
-                \${comments.map(comment => renderComment(comment)).join('')}
+                \${rootComments.map(comment => renderComment(comment)).join('')}
               </tbody>
             </table>
           </div>
@@ -3902,6 +3941,152 @@ app.get('/wp-admin', (c) => {
         await loadCommentsList(statusFilter);
       } catch (error) {
         console.error('删除失败 comment:', error);
+      }
+    };
+
+    function getUnifiedCommentStatusFilter() {
+      return document.getElementById('comment-status-filter')?.value || 'all';
+    }
+
+    window.approveUnifiedComment = async function(type, parentResourceId, commentId) {
+      if (type === 'moment_comment') {
+        await fetch(API_BASE + '/moments/' + parentResourceId + '/comments/' + commentId, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + authToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'approved' })
+        });
+      } else {
+        await approveComment(commentId);
+        return;
+      }
+
+      await loadCommentsList(getUnifiedCommentStatusFilter());
+      await loadMomentsList();
+    };
+
+    window.markUnifiedCommentAsSpam = async function(type, parentResourceId, commentId) {
+      if (type === 'moment_comment') {
+        await fetch(API_BASE + '/moments/' + parentResourceId + '/comments/' + commentId, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + authToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'spam' })
+        });
+      } else {
+        await markAsSpam(commentId);
+        return;
+      }
+
+      await loadCommentsList(getUnifiedCommentStatusFilter());
+      await loadMomentsList();
+    };
+
+    window.replyToUnifiedComment = async function(type, parentResourceId, commentId) {
+      if (type === 'moment_comment') {
+        await replyToMomentComment(parentResourceId, commentId);
+      } else {
+        await replyToComment(commentId, parentResourceId);
+      }
+    };
+
+    window.editUnifiedComment = async function(type, parentResourceId, commentId) {
+      if (type === 'moment_comment') {
+        const comments = await fetch(API_BASE + '/moments/' + parentResourceId + '/comments?per_page=100&status=all', {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        }).then(r => r.json());
+        const comment = comments.find(item => item.id === commentId);
+        if (!comment) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = \`
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Edit Moment Comment</h2>
+              <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <form id="edit-unified-moment-comment-form">
+              <div class="form-group">
+                <label>Author Name *</label>
+                <input type="text" name="author_name" value="\${comment.author_name}" required>
+              </div>
+              <div class="form-group">
+                <label>Author Email *</label>
+                <input type="email" name="author_email" value="\${comment.author_email || ''}" required>
+              </div>
+              <div class="form-group">
+                <label>Author URL</label>
+                <input type="url" name="author_url" value="\${comment.author_url || ''}">
+              </div>
+              <div class="form-group">
+                <label>Comment *</label>
+                <textarea name="content" required style="min-height: 150px;">\${comment.content.rendered}</textarea>
+              </div>
+              <div class="form-group">
+                <label>Status</label>
+                <select name="status">
+                  <option value="approved" \${comment.status === 'approved' ? 'selected' : ''}>Approved</option>
+                  <option value="pending" \${comment.status === 'pending' ? 'selected' : ''}>Pending</option>
+                  <option value="spam" \${comment.status === 'spam' ? 'selected' : ''}>Spam</option>
+                  <option value="trash" \${comment.status === 'trash' ? 'selected' : ''}>Trash</option>
+                </select>
+              </div>
+              <button type="submit" class="button" style="width: 100%;">Update Comment</button>
+            </form>
+          </div>
+        \`;
+        document.body.appendChild(modal);
+
+        document.getElementById('edit-unified-moment-comment-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+
+          try {
+            await fetch(API_BASE + '/moments/' + parentResourceId + '/comments/' + commentId, {
+              method: 'PUT',
+              headers: {
+                'Authorization': 'Bearer ' + authToken,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                author_name: formData.get('author_name'),
+                author_email: formData.get('author_email'),
+                author_url: formData.get('author_url'),
+                content: formData.get('content'),
+                status: formData.get('status')
+              })
+            });
+
+            modal.remove();
+            await loadCommentsList(getUnifiedCommentStatusFilter());
+            await loadMomentsList();
+          } catch (error) {
+            console.error('更新失败 unified moment comment:', error);
+          }
+        });
+      } else {
+        await editComment(commentId);
+      }
+    };
+
+    window.deleteUnifiedComment = async function(type, parentResourceId, commentId) {
+      if (type === 'moment_comment') {
+        if (!confirm('确定要删除 this moment comment permanently?')) return;
+
+        await fetch(API_BASE + '/moments/' + parentResourceId + '/comments/' + commentId + '?force=true', {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+
+        await loadCommentsList(getUnifiedCommentStatusFilter());
+        await loadMomentsList();
+      } else {
+        await deleteComment(commentId);
       }
     };
 
@@ -4256,6 +4441,7 @@ app.get('/wp-admin', (c) => {
                     </div>
                   </div>
                   <div style="display: flex; gap: 8px;">
+                    <a href="#" class="action-link" onclick="manageMomentComments(\${moment.id}); return false;">管理评论</a>
                     <a href="#" class="action-link" onclick="editMoment(\${moment.id}); return false;">\${i18n.t('common.edit')}</a>
                     <a href="#" class="action-link delete" onclick="deleteMoment(\${moment.id}); return false;">\${i18n.t('common.delete')}</a>
                   </div>
@@ -4428,6 +4614,335 @@ https://example.com/image2.jpg"></textarea>
       }
     };
 
+    window.manageMomentComments = async function(momentId) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = \`
+        <div class="modal-content" style="max-width: 1100px;">
+          <div class="modal-header">
+            <h2>管理动态评论</h2>
+            <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
+          </div>
+          <div class="page-header" style="margin-bottom: 16px;">
+            <div>
+              <select id="moment-comment-status-filter" style="padding: 8px;">
+                <option value="all">\${i18n.t('common.all')}</option>
+                <option value="approved">\${i18n.t('statusOptions.approved')}</option>
+                <option value="pending">\${i18n.t('statusOptions.pending')}</option>
+                <option value="spam">\${i18n.t('statusOptions.spam')}</option>
+                <option value="trash">\${i18n.t('statusOptions.trash')}</option>
+              </select>
+            </div>
+          </div>
+          <div id="moment-comments-list"></div>
+        </div>
+      \`;
+      modal.dataset.momentId = String(momentId);
+      document.body.appendChild(modal);
+
+      document.getElementById('moment-comment-status-filter').addEventListener('change', (e) => {
+        loadMomentCommentsList(momentId, e.target.value);
+      });
+
+      await loadMomentCommentsList(momentId, 'all');
+    };
+
+    async function loadMomentCommentsList(momentId, status = 'all') {
+      try {
+        const response = await fetch(API_BASE + '/moments/' + momentId + '/comments?per_page=100&status=' + status, {
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const comments = await response.json();
+
+        const container = document.getElementById('moment-comments-list');
+        if (!comments || !Array.isArray(comments) || comments.length === 0) {
+          container.innerHTML = '<div class="empty-state">这条动态还没有评论。</div>';
+          return;
+        }
+
+        const commentMap = new Map();
+        const roots = [];
+
+        comments.forEach(comment => {
+          comment.children = [];
+          commentMap.set(comment.id, comment);
+        });
+
+        comments.forEach(comment => {
+          if (comment.parent && commentMap.has(comment.parent)) {
+            commentMap.get(comment.parent).children.push(comment);
+          } else {
+            roots.push(comment);
+          }
+        });
+
+        function renderMomentComment(comment, depth = 0) {
+          const indent = depth * 30;
+          const row = \`
+            <tr style="background: \${depth > 0 ? '#f6f7f7' : 'white'};">
+              <td style="padding-left: \${indent + 10}px;">
+                \${depth > 0 ? '<span style="color: #2271b1; margin-right: 5px;">↳</span>' : ''}
+                <strong>\${comment.author_name}</strong><br>
+                <small style="color: #646970;">\${comment.author_email || i18n.t('comments.noEmail')}</small>
+              </td>
+              <td style="max-width: 360px; overflow: hidden; text-overflow: ellipsis;">
+                \${comment.content.rendered.substring(0, 120)}...
+              </td>
+              <td>
+                <span style="padding: 3px 8px; background: \${
+                  comment.status === 'approved' ? '#00a32a' :
+                  comment.status === 'pending' ? '#dba617' :
+                  comment.status === 'spam' ? '#d63638' : '#646970'
+                }; color: white; border-radius: 3px; font-size: 12px;">
+                  \${translateStatus(comment.status)}
+                </span>
+              </td>
+              <td>\${new Date(comment.date).toLocaleDateString()}</td>
+              <td class="actions">
+                \${comment.status !== 'approved' ? \`<a href="#" class="action-link" onclick="approveMomentComment(\${momentId}, \${comment.id}); return false;">\${i18n.t('comments.approve')}</a>\` : ''}
+                \${comment.status !== 'spam' ? \`<a href="#" class="action-link" onclick="markMomentCommentAsSpam(\${momentId}, \${comment.id}); return false;">\${i18n.t('comments.markAsSpam')}</a>\` : ''}
+                <a href="#" class="action-link" onclick="replyToMomentComment(\${momentId}, \${comment.id}); return false;">\${i18n.t('comments.reply')}</a>
+                <a href="#" class="action-link" onclick="editMomentComment(\${momentId}, \${comment.id}); return false;">\${i18n.t('common.edit')}</a>
+                <a href="#" class="action-link delete" onclick="deleteMomentComment(\${momentId}, \${comment.id}); return false;">\${i18n.t('common.delete')}</a>
+              </td>
+            </tr>
+          \`;
+
+          const children = comment.children && comment.children.length
+            ? comment.children.map(child => renderMomentComment(child, depth + 1)).join('')
+            : '';
+          return row + children;
+        }
+
+        container.innerHTML = \`
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>\${i18n.t('comments.author')}</th>
+                  <th>\${i18n.t('comments.comment')}</th>
+                  <th>\${i18n.t('common.status')}</th>
+                  <th>\${i18n.t('common.date')}</th>
+                  <th>\${i18n.t('common.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                \${roots.map(comment => renderMomentComment(comment)).join('')}
+              </tbody>
+            </table>
+          </div>
+        \`;
+      } catch (error) {
+        console.error('加载失败 moment comments:', error);
+        const container = document.getElementById('moment-comments-list');
+        if (container) {
+          container.innerHTML = '<div class="error-message">加载动态评论失败。</div>';
+        }
+      }
+    }
+
+    window.approveMomentComment = async function(momentId, commentId) {
+      try {
+        await fetch(API_BASE + '/moments/' + momentId + '/comments/' + commentId, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + authToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'approved' })
+        });
+        const statusFilter = document.getElementById('moment-comment-status-filter').value;
+        await loadMomentCommentsList(momentId, statusFilter);
+        const unifiedFilter = document.getElementById('comment-status-filter')?.value;
+        if (unifiedFilter) {
+          await loadCommentsList(unifiedFilter);
+        }
+        await loadMomentsList();
+      } catch (error) {
+        console.error('Failed to approve moment comment:', error);
+      }
+    };
+
+    window.markMomentCommentAsSpam = async function(momentId, commentId) {
+      try {
+        await fetch(API_BASE + '/moments/' + momentId + '/comments/' + commentId, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + authToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'spam' })
+        });
+        const statusFilter = document.getElementById('moment-comment-status-filter').value;
+        await loadMomentCommentsList(momentId, statusFilter);
+        const unifiedFilter = document.getElementById('comment-status-filter')?.value;
+        if (unifiedFilter) {
+          await loadCommentsList(unifiedFilter);
+        }
+        await loadMomentsList();
+      } catch (error) {
+        console.error('Failed to mark moment comment as spam:', error);
+      }
+    };
+
+    window.replyToMomentComment = async function(momentId, parentId) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = \`
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>回复动态评论</h2>
+            <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
+          </div>
+          <form id="reply-moment-comment-form">
+            <div class="form-group">
+              <label>回复内容 *</label>
+              <textarea name="content" required style="min-height: 150px;" placeholder="输入回复内容..."></textarea>
+            </div>
+            <button type="submit" class="button" style="width: 100%;">发送回复</button>
+          </form>
+        </div>
+      \`;
+      document.body.appendChild(modal);
+
+      document.getElementById('reply-moment-comment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+
+        try {
+          const response = await fetch(API_BASE + '/moments/' + momentId + '/comments', {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + authToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              parent: parentId,
+              content: formData.get('content')
+            })
+          });
+
+          if (response.ok) {
+            modal.remove();
+            const statusFilter = document.getElementById('moment-comment-status-filter').value;
+            await loadMomentCommentsList(momentId, statusFilter);
+            const unifiedFilter = document.getElementById('comment-status-filter')?.value;
+            if (unifiedFilter) {
+              await loadCommentsList(unifiedFilter);
+            }
+            await loadMomentsList();
+            showSuccess('回复已发送！');
+          } else {
+            const error = await response.json();
+            showError('发送回复失败: ' + error.message);
+          }
+        } catch (error) {
+          console.error('Failed to reply moment comment:', error);
+          showError('发送回复失败');
+        }
+      });
+    };
+
+    window.editMomentComment = async function(momentId, commentId) {
+      const comments = await fetch(API_BASE + '/moments/' + momentId + '/comments?per_page=100&status=all', {
+        headers: { 'Authorization': 'Bearer ' + authToken }
+      }).then(r => r.json());
+      const comment = comments.find(item => item.id === commentId);
+      if (!comment) return;
+
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = \`
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Edit Moment Comment</h2>
+            <button class="close-button" onclick="this.closest('.modal').remove()">&times;</button>
+          </div>
+          <form id="edit-moment-comment-form">
+            <div class="form-group">
+              <label>Author Name *</label>
+              <input type="text" name="author_name" value="\${comment.author_name}" required>
+            </div>
+            <div class="form-group">
+              <label>Author Email *</label>
+              <input type="email" name="author_email" value="\${comment.author_email || ''}" required>
+            </div>
+            <div class="form-group">
+              <label>Author URL</label>
+              <input type="url" name="author_url" value="\${comment.author_url || ''}">
+            </div>
+            <div class="form-group">
+              <label>Comment *</label>
+              <textarea name="content" required style="min-height: 150px;">\${comment.content.rendered}</textarea>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select name="status">
+                <option value="approved" \${comment.status === 'approved' ? 'selected' : ''}>Approved</option>
+                <option value="pending" \${comment.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="spam" \${comment.status === 'spam' ? 'selected' : ''}>Spam</option>
+                <option value="trash" \${comment.status === 'trash' ? 'selected' : ''}>Trash</option>
+              </select>
+            </div>
+            <button type="submit" class="button" style="width: 100%;">Update Comment</button>
+          </form>
+        </div>
+      \`;
+      document.body.appendChild(modal);
+
+      document.getElementById('edit-moment-comment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+
+        try {
+          await fetch(API_BASE + '/moments/' + momentId + '/comments/' + commentId, {
+            method: 'PUT',
+            headers: {
+              'Authorization': 'Bearer ' + authToken,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              author_name: formData.get('author_name'),
+              author_email: formData.get('author_email'),
+              author_url: formData.get('author_url'),
+              content: formData.get('content'),
+              status: formData.get('status')
+            })
+          });
+          modal.remove();
+          const statusFilter = document.getElementById('moment-comment-status-filter').value;
+          await loadMomentCommentsList(momentId, statusFilter);
+          const unifiedFilter = document.getElementById('comment-status-filter')?.value;
+          if (unifiedFilter) {
+            await loadCommentsList(unifiedFilter);
+          }
+          await loadMomentsList();
+        } catch (error) {
+          console.error('更新失败 moment comment:', error);
+        }
+      });
+    };
+
+    window.deleteMomentComment = async function(momentId, commentId) {
+      if (!confirm('确定要删除 this moment comment permanently?')) return;
+
+      try {
+        await fetch(API_BASE + '/moments/' + momentId + '/comments/' + commentId + '?force=true', {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+        const statusFilter = document.getElementById('moment-comment-status-filter').value;
+        await loadMomentCommentsList(momentId, statusFilter);
+        const unifiedFilter = document.getElementById('comment-status-filter')?.value;
+        if (unifiedFilter) {
+          await loadCommentsList(unifiedFilter);
+        }
+        await loadMomentsList();
+      } catch (error) {
+        console.error('删除失败 moment comment:', error);
+      }
+    };
+
     window.openMediaLibraryForMoment = function(mode, momentId) {
       const modal = document.createElement('div');
       modal.className = 'modal';
@@ -4591,6 +5106,41 @@ https://example.com/image2.jpg"></textarea>
               </div>
 
               <div class="form-group">
+                <label>网站公告</label>
+                <textarea name="site_notice" style="min-height: 100px;" placeholder="每行一段公告内容">\${settings.site_notice || ''}</textarea>
+                <small style="color: #646970; display: block; margin-top: 5px;">显示在前台侧边栏公告卡片中，支持多行文本。</small>
+              </div>
+
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
+
+              <h3 style="margin-bottom: 20px; color: #1d2327;">社交联系方式</h3>
+
+              <div class="form-group">
+                <label>Telegram</label>
+                <input type="text" name="social_telegram" value="\${settings.social_telegram || ''}" placeholder="@username 或 https://t.me/username">
+              </div>
+
+              <div class="form-group">
+                <label>X</label>
+                <input type="text" name="social_x" value="\${settings.social_x || ''}" placeholder="@username 或 https://x.com/username">
+              </div>
+
+              <div class="form-group">
+                <label>Mastodon</label>
+                <input type="text" name="social_mastodon" value="\${settings.social_mastodon || ''}" placeholder="完整主页地址">
+              </div>
+
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="social_email" value="\${settings.social_email || ''}" placeholder="you@example.com">
+              </div>
+
+              <div class="form-group">
+                <label>QQ</label>
+                <input type="text" name="social_qq" value="\${settings.social_qq || ''}" placeholder="QQ号码">
+              </div>
+
+              <div class="form-group">
                 <label>ICP Beian (备案号)</label>
                 <input type="text" name="site_icp" value="\${settings.site_icp || ''}" placeholder="京ICP备xxxxx号">
                 <small style="color: #646970; display: block; margin-top: 5px;">For Chinese sites only.</small>
@@ -4707,6 +5257,12 @@ https://example.com/image2.jpg"></textarea>
             site_author: formData.get('site_author'),
             site_favicon: formData.get('site_favicon'),
             site_logo: formData.get('site_logo'),
+            site_notice: formData.get('site_notice'),
+            social_telegram: formData.get('social_telegram'),
+            social_x: formData.get('social_x'),
+            social_mastodon: formData.get('social_mastodon'),
+            social_email: formData.get('social_email'),
+            social_qq: formData.get('social_qq'),
             site_icp: formData.get('site_icp'),
             site_footer_text: formData.get('site_footer_text'),
             head_html: formData.get('head_html'),
@@ -4778,6 +5334,16 @@ https://example.com/image2.jpg"></textarea>
 </body>
 </html>
   `);
+});
+
+registerPublicSiteRoutes(app);
+
+app.notFound(async (c) => {
+  const assetResponse = await c.env.ASSETS.fetch(c.req.raw);
+  if (assetResponse.status !== 404) {
+    return assetResponse;
+  }
+  return c.text('Not Found', 404);
 });
 
 export default app;
