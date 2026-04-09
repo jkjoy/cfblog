@@ -1719,16 +1719,19 @@ function renderLinkItem(item: LinkItem): string {
 }
 
 function renderMomentItem(item: MomentItem): string {
-  const mediaHtml = item.mediaUrls.length
-    ? `<p class="vh-img-flex">${item.mediaUrls
-        .slice(0, 4)
+  const mediaUrls = item.mediaUrls.slice(0, 9);
+  const mediaHtml = mediaUrls.length
+    ? `<div class="vh-img-flex" data-media-count="${mediaUrls.length}">${mediaUrls
         .map(
-          (url) =>
-            `<img src="/assets/images/lazy-loading.webp" data-vh-lz-src="${escapeAttribute(
-              url,
-            )}" alt="${escapeAttribute(item.author.name)} 发布的图片" />`,
+          (url, index) => `
+            <span class="vh-img-grid-item">
+              <img src="/assets/images/lazy-loading.webp" data-vh-lz-src="${escapeAttribute(
+                url,
+              )}" alt="${escapeAttribute(item.author.name)} 发布的第 ${index + 1} 张图片" />
+            </span>
+          `,
         )
-        .join('')}</p>`
+        .join('')}</div>`
     : '';
   const formId = `moment-comment-form-${item.id}`;
   const commentList = item.comments.length

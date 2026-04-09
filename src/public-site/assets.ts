@@ -171,30 +171,59 @@ export const PUBLIC_SITE_CSS = String.raw`.vh-tools-main {
   font-weight: 500;
 }
 
-.vh-tools-main > main.main.talking-main > article > .main img {
-  width: 100%;
+.vh-tools-main > main.main.talking-main > article > .main > :not(.vh-img-flex) img {
+  display: block;
+  box-sizing: border-box;
+  max-width: min(100%, 22rem);
+  width: auto;
   height: auto;
-  aspect-ratio: 3 / 2;
-  border-radius: 0.375rem;
+  margin-top: 0.75rem;
+  border-radius: 0.5rem;
   object-fit: contain;
-  overflow: hidden;
 }
 
 .vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex {
+  --vh-moment-media-gap: 0.66rem;
+  --vh-moment-media-size: clamp(4.75rem, 18vw, 7rem);
   box-sizing: border-box;
-  padding: 0.8rem 0;
+  padding-top: 0.8rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(30%, 1fr));
-  gap: 0.66rem;
+  grid-template-columns: repeat(3, minmax(0, var(--vh-moment-media-size)));
+  gap: var(--vh-moment-media-gap);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex[data-media-count='1'] {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(18rem, 100%);
+}
+
+.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex[data-media-count='2'],
+.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex[data-media-count='4'] {
+  grid-template-columns: repeat(2, minmax(0, var(--vh-moment-media-size)));
+}
+
+.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > .vh-img-grid-item {
+  display: block;
   width: 100%;
-  height: max-content;
-  max-height: 50%;
+  aspect-ratio: 1 / 1;
+  border-radius: 0.5rem;
+  background-color: var(--vh-font-16);
   overflow: hidden;
 }
 
-.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > img {
+.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > .vh-img-grid-item > img {
+  display: block;
+  width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
+  transition: transform 0.2s ease-in-out;
+}
+
+.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > .vh-img-grid-item:hover > img {
+  transform: scale(1.03);
 }
 
 .vh-tools-main > main.main.talking-main > article > footer {
@@ -777,7 +806,12 @@ section.vh-art-page.vh-inline-page {
   }
 
   .vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex {
-    grid-template-columns: repeat(auto-fit, minmax(46%, 1fr));
+    --vh-moment-media-gap: 0.55rem;
+    --vh-moment-media-size: clamp(4.2rem, 24vw, 5.75rem);
+  }
+
+  .vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex[data-media-count='1'] {
+    width: min(13.5rem, 100%);
   }
 
   section.vh-archive-main {
