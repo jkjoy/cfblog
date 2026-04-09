@@ -205,12 +205,20 @@ export const PUBLIC_SITE_CSS = String.raw`.vh-tools-main {
 }
 
 .vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > .vh-img-grid-item {
+  appearance: none;
+  position: relative;
   display: block;
+  box-sizing: border-box;
+  padding: 0;
   width: 100%;
   aspect-ratio: 1 / 1;
+  border: none;
   border-radius: 0.5rem;
   background-color: var(--vh-font-16);
+  font: inherit;
+  cursor: zoom-in;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > .vh-img-grid-item > img {
@@ -222,8 +230,144 @@ export const PUBLIC_SITE_CSS = String.raw`.vh-tools-main {
   transition: transform 0.2s ease-in-out;
 }
 
+.vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > .vh-img-grid-item:focus-visible {
+  outline: 2px solid var(--vh-main-color);
+  outline-offset: 3px;
+}
+
 .vh-tools-main > main.main.talking-main > article > .main > .vh-img-flex > .vh-img-grid-item:hover > img {
   transform: scale(1.03);
+}
+
+body.vh-lightbox-open {
+  overflow: hidden;
+}
+
+.vh-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 2rem);
+  background: rgba(10, 17, 25, 0.82);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.vh-lightbox.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.vh-lightbox-dialog {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 78rem);
+  max-height: 100%;
+  transform: translateY(0.75rem) scale(0.98);
+  transition: transform 0.2s ease;
+}
+
+.vh-lightbox.active .vh-lightbox-dialog {
+  transform: translateY(0) scale(1);
+}
+
+.vh-lightbox-stage {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  padding: clamp(2.75rem, 4vw, 3.5rem) clamp(0.5rem, 4vw, 4rem) clamp(2.25rem, 3vw, 2.75rem);
+}
+
+.vh-lightbox-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.vh-lightbox-image {
+  display: block;
+  max-width: 100%;
+  max-height: min(78vh, 56rem);
+  width: auto;
+  height: auto;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  object-fit: contain;
+}
+
+.vh-lightbox-caption {
+  min-height: 1.2rem;
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
+
+.vh-lightbox-close,
+.vh-lightbox-nav {
+  appearance: none;
+  position: absolute;
+  z-index: 1;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding: 0 0.88rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(15, 23, 33, 0.56);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  transition: transform 0.18s ease, background-color 0.18s ease, opacity 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vh-lightbox-close:hover,
+.vh-lightbox-nav:hover {
+  background: rgba(15, 23, 33, 0.72);
+  transform: translateY(-1px);
+}
+
+.vh-lightbox-close:focus-visible,
+.vh-lightbox-nav:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.vh-lightbox-close {
+  top: 0;
+  right: clamp(0.5rem, 2vw, 1rem);
+}
+
+.vh-lightbox-nav[data-direction='prev'] {
+  left: max(0rem, calc(clamp(0.5rem, 4vw, 4rem) - 1rem));
+}
+
+.vh-lightbox-nav[data-direction='next'] {
+  right: max(0rem, calc(clamp(0.5rem, 4vw, 4rem) - 1rem));
+}
+
+.vh-lightbox-nav[disabled] {
+  opacity: 0;
+  cursor: default;
+  pointer-events: none;
+  transform: none;
 }
 
 .vh-tools-main > main.main.talking-main > article > footer {
@@ -547,6 +691,30 @@ article.vh-article-main > main img {
   object-fit: contain;
 }
 
+article.vh-article-main > main a.vh-article-lightbox-trigger {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1rem auto;
+  border-radius: 0.75rem;
+  cursor: zoom-in;
+}
+
+article.vh-article-main > main a.vh-article-lightbox-trigger > img {
+  margin: 0 auto;
+}
+
+article.vh-article-main > main img.vh-article-lightbox-trigger {
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+article.vh-article-main > main img.vh-article-lightbox-trigger:focus-visible,
+article.vh-article-main > main a.vh-article-lightbox-trigger:focus-visible {
+  outline: 2px solid var(--vh-main-color);
+  outline-offset: 3px;
+}
+
 article.vh-article-main > main pre {
   position: relative;
   box-sizing: border-box;
@@ -814,6 +982,38 @@ section.vh-art-page.vh-inline-page {
     width: min(13.5rem, 100%);
   }
 
+  .vh-lightbox {
+    padding: 0.88rem;
+  }
+
+  .vh-lightbox-stage {
+    padding: 3.4rem 0 2.2rem;
+  }
+
+  .vh-lightbox-image {
+    max-height: min(72vh, 34rem);
+    border-radius: 0.72rem;
+  }
+
+  .vh-lightbox-close,
+  .vh-lightbox-nav {
+    min-width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .vh-lightbox-close {
+    top: 0.15rem;
+    right: 0;
+  }
+
+  .vh-lightbox-nav[data-direction='prev'] {
+    left: 0;
+  }
+
+  .vh-lightbox-nav[data-direction='next'] {
+    right: 0;
+  }
+
   section.vh-archive-main {
     padding: 0;
     background-color: transparent;
@@ -924,6 +1124,237 @@ export const PUBLIC_SITE_JS = String.raw`(() => {
     img.addEventListener('load', markLoaded, { once: true });
     img.setAttribute('src', target);
   });
+
+  const articleBodies = Array.from(document.querySelectorAll('article.vh-article-main > main'));
+  articleBodies.forEach((articleBody, articleIndex) => {
+    if (!(articleBody instanceof HTMLElement)) {
+      return;
+    }
+
+    const articleImages = Array.from(articleBody.querySelectorAll('img'));
+    articleImages.forEach((img, imageIndex) => {
+      if (!(img instanceof HTMLImageElement) || img.hasAttribute('data-vh-lightbox-trigger')) {
+        return;
+      }
+
+      const src = img.currentSrc || img.getAttribute('src') || '';
+      if (!src) {
+        return;
+      }
+
+      const alt = String(
+        img.getAttribute('alt') || img.getAttribute('title') || '文章图片 ' + String(imageIndex + 1),
+      );
+      const wrapperLink = img.closest('a');
+      const useWrapperLink =
+        wrapperLink instanceof HTMLAnchorElement &&
+        wrapperLink.querySelectorAll('img').length === 1 &&
+        !String(wrapperLink.textContent || '').trim();
+      const trigger = useWrapperLink ? wrapperLink : img;
+
+      if (!(trigger instanceof HTMLElement)) {
+        return;
+      }
+
+      trigger.classList.add('vh-article-lightbox-trigger');
+      trigger.setAttribute('data-vh-lightbox-trigger', '');
+      trigger.setAttribute('data-vh-lightbox-group', 'article-' + String(articleIndex + 1));
+      trigger.setAttribute('data-vh-lightbox-src', src);
+      trigger.setAttribute('data-vh-lightbox-alt', alt);
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      trigger.setAttribute('aria-label', alt ? '查看图片：' + alt : '查看大图');
+
+      if (!(trigger instanceof HTMLAnchorElement) && !(trigger instanceof HTMLButtonElement)) {
+        trigger.setAttribute('role', 'button');
+        trigger.tabIndex = 0;
+      }
+    });
+  });
+
+  const lightboxTriggers = Array.from(document.querySelectorAll('[data-vh-lightbox-trigger]'));
+  let isLightboxOpen = () => false;
+  let closeLightbox = () => {};
+  let showPreviousLightboxItem = () => {};
+  let showNextLightboxItem = () => {};
+
+  if (lightboxTriggers.length) {
+    const lightbox = document.createElement('div');
+    lightbox.className = 'vh-lightbox';
+    lightbox.setAttribute('hidden', '');
+    lightbox.innerHTML =
+      '<div class="vh-lightbox-dialog" role="dialog" aria-modal="true" aria-label="图片预览">' +
+      '<div class="vh-lightbox-stage">' +
+      '<button type="button" class="vh-lightbox-close" aria-label="关闭预览">关闭</button>' +
+      '<button type="button" class="vh-lightbox-nav" data-direction="prev" aria-label="上一张">&lt;</button>' +
+      '<figure class="vh-lightbox-figure">' +
+      '<img class="vh-lightbox-image" alt="">' +
+      '<figcaption class="vh-lightbox-caption"></figcaption>' +
+      '</figure>' +
+      '<button type="button" class="vh-lightbox-nav" data-direction="next" aria-label="下一张">&gt;</button>' +
+      '</div>' +
+      '</div>';
+    document.body.appendChild(lightbox);
+
+    const lightboxImage = lightbox.querySelector('.vh-lightbox-image');
+    const lightboxCaption = lightbox.querySelector('.vh-lightbox-caption');
+    const lightboxClose = lightbox.querySelector('.vh-lightbox-close');
+    const previousButton = lightbox.querySelector('.vh-lightbox-nav[data-direction="prev"]');
+    const nextButton = lightbox.querySelector('.vh-lightbox-nav[data-direction="next"]');
+
+    let currentGallery = [];
+    let currentIndex = 0;
+    let hideTimer = 0;
+    let lastActiveElement = null;
+
+    const getGalleryItems = (trigger) => {
+      const group = String(trigger.getAttribute('data-vh-lightbox-group') || '');
+      if (!group) {
+        return [trigger];
+      }
+      return lightboxTriggers.filter(
+        (item) => item instanceof HTMLElement && item.getAttribute('data-vh-lightbox-group') === group,
+      );
+    };
+
+    const syncLightbox = () => {
+      const activeButton = currentGallery[currentIndex];
+      if (
+        !(activeButton instanceof HTMLElement) ||
+        !(lightboxImage instanceof HTMLImageElement) ||
+        !(lightboxCaption instanceof HTMLElement) ||
+        !(previousButton instanceof HTMLButtonElement) ||
+        !(nextButton instanceof HTMLButtonElement)
+      ) {
+        return;
+      }
+
+      const src = String(activeButton.getAttribute('data-vh-lightbox-src') || '');
+      const alt = String(activeButton.getAttribute('data-vh-lightbox-alt') || '');
+      lightboxImage.setAttribute('src', src);
+      lightboxImage.setAttribute('alt', alt);
+
+      const countLabel =
+        currentGallery.length > 1 ? String(currentIndex + 1) + ' / ' + String(currentGallery.length) : '';
+      lightboxCaption.textContent = [countLabel, alt].filter(Boolean).join(' · ');
+      previousButton.disabled = currentGallery.length <= 1;
+      nextButton.disabled = currentGallery.length <= 1;
+    };
+
+    const showLightboxItem = (nextIndex) => {
+      if (!currentGallery.length) {
+        return;
+      }
+      const total = currentGallery.length;
+      currentIndex = ((nextIndex % total) + total) % total;
+      syncLightbox();
+    };
+
+    const openLightbox = (button) => {
+      if (!(button instanceof HTMLElement)) {
+        return;
+      }
+
+      const src = String(button.getAttribute('data-vh-lightbox-src') || '');
+      if (!src) {
+        return;
+      }
+
+      currentGallery = getGalleryItems(button);
+      currentIndex = Math.max(currentGallery.indexOf(button), 0);
+      lastActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (hideTimer) {
+        window.clearTimeout(hideTimer);
+        hideTimer = 0;
+      }
+
+      syncLightbox();
+      lightbox.removeAttribute('hidden');
+      document.body.classList.add('vh-lightbox-open');
+      window.requestAnimationFrame(() => {
+        lightbox.classList.add('active');
+      });
+      if (lightboxClose instanceof HTMLButtonElement) {
+        lightboxClose.focus({ preventScroll: true });
+      }
+    };
+
+    closeLightbox = () => {
+      if (lightbox.hasAttribute('hidden')) {
+        return;
+      }
+
+      lightbox.classList.remove('active');
+      document.body.classList.remove('vh-lightbox-open');
+      hideTimer = window.setTimeout(() => {
+        lightbox.setAttribute('hidden', '');
+        if (lightboxImage instanceof HTMLImageElement) {
+          lightboxImage.removeAttribute('src');
+        }
+        hideTimer = 0;
+      }, 200);
+
+      if (lastActiveElement instanceof HTMLElement && lastActiveElement.isConnected) {
+        window.setTimeout(() => {
+          lastActiveElement.focus({ preventScroll: true });
+        }, 0);
+      }
+    };
+
+    showPreviousLightboxItem = () => {
+      showLightboxItem(currentIndex - 1);
+    };
+
+    showNextLightboxItem = () => {
+      showLightboxItem(currentIndex + 1);
+    };
+
+    isLightboxOpen = () => lightbox.classList.contains('active');
+
+    lightboxTriggers.forEach((button) => {
+      if (!(button instanceof HTMLElement)) {
+        return;
+      }
+
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        openLightbox(button);
+      });
+
+      if (!(button instanceof HTMLAnchorElement) && !(button instanceof HTMLButtonElement)) {
+        button.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+          }
+          event.preventDefault();
+          openLightbox(button);
+        });
+      }
+    });
+
+    if (lightboxClose instanceof HTMLButtonElement) {
+      lightboxClose.addEventListener('click', closeLightbox);
+    }
+
+    if (previousButton instanceof HTMLButtonElement) {
+      previousButton.addEventListener('click', showPreviousLightboxItem);
+    }
+
+    if (nextButton instanceof HTMLButtonElement) {
+      nextButton.addEventListener('click', showNextLightboxItem);
+    }
+
+    lightbox.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      if (target.closest('.vh-lightbox-figure') || target.closest('.vh-lightbox-nav') || target.closest('.vh-lightbox-close')) {
+        return;
+      }
+      closeLightbox();
+    });
+  }
 
   const codeBlocks = Array.from(document.querySelectorAll('article.vh-article-main > main pre'));
   codeBlocks.forEach((block) => {
@@ -1049,6 +1480,25 @@ export const PUBLIC_SITE_JS = String.raw`(() => {
   }
 
   document.addEventListener('keydown', (event) => {
+    if (isLightboxOpen()) {
+      if (event.key === 'Escape') {
+        closeLightbox();
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        showPreviousLightboxItem();
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        showNextLightboxItem();
+        return;
+      }
+    }
+
     if (event.key === 'Escape') {
       closeSearch();
       closeSidebar();

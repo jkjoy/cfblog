@@ -1724,11 +1724,20 @@ function renderMomentItem(item: MomentItem): string {
     ? `<div class="vh-img-flex" data-media-count="${mediaUrls.length}">${mediaUrls
         .map(
           (url, index) => `
-            <span class="vh-img-grid-item">
+            <button
+              type="button"
+              class="vh-img-grid-item"
+              data-vh-lightbox-trigger
+              data-vh-lightbox-group="moment-${item.id}"
+              data-vh-lightbox-src="${escapeAttribute(url)}"
+              data-vh-lightbox-alt="${escapeAttribute(item.author.name)} 发布的第 ${index + 1} 张图片"
+              aria-label="查看第 ${index + 1} 张大图"
+              aria-haspopup="dialog"
+            >
               <img src="/assets/images/lazy-loading.webp" data-vh-lz-src="${escapeAttribute(
                 url,
               )}" alt="${escapeAttribute(item.author.name)} 发布的第 ${index + 1} 张图片" />
-            </span>
+            </button>
           `,
         )
         .join('')}</div>`
