@@ -1595,6 +1595,20 @@ function renderFooter(common: CommonSiteData): string {
               )}</a></p>`
             : ''
         }
+        <p class="vh-footer-badge">
+          <a
+            href="https://github.com/jkjoy/CFBLOG"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub stars for jkjoy/CFBLOG"
+          >
+            <img
+              src="https://img.shields.io/github/stars/jkjoy/CFBLOG"
+              alt="GitHub stars for jkjoy/CFBLOG"
+              decoding="async"
+            >
+          </a>
+        </p>
       </section>
     </footer>
   `;

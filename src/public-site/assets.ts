@@ -679,6 +679,25 @@ body.vh-lightbox-open {
   text-align: center;
 }
 
+.vh-footer > section.text > p.vh-footer-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.vh-footer > section.text > p.vh-footer-badge > a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vh-footer > section.text > p.vh-footer-badge img {
+  display: block;
+  width: auto;
+  height: 20px;
+}
+
 article.vh-article-main > main img {
   display: block;
   box-sizing: border-box;
