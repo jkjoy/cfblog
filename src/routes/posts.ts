@@ -10,10 +10,11 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
+    const user = c.get('user') as JWTPayload | undefined;
 
     const page = parseInt(c.req.query('page') || '1');
     const perPage = parseInt(c.req.query('per_page') || '10');
-    const status = c.req.query('status') || 'publish';
+    const status = (c.req.query('status') || 'publish').trim().toLowerCase();
     const author = c.req.query('author');
     const categories = c.req.query('categories');
     const tags = c.req.query('tags');
@@ -24,9 +25,24 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     const order = c.req.query('order') || 'desc';
 
     const offset = (page - 1) * perPage;
+    const allowedStatuses = new Set(['publish', 'draft', 'pending', 'private', 'trash']);
+    const includeAllStatuses = status === 'all';
 
-    let query = 'SELECT * FROM posts WHERE post_type = ? AND status = ?';
-    const params: any[] = ['post', status];
+    if (!includeAllStatuses && !allowedStatuses.has(status)) {
+      return createWPError('rest_invalid_param', 'Invalid post status.', 400);
+    }
+
+    if ((includeAllStatuses || status !== 'publish') && !user) {
+      return createWPError('rest_not_logged_in', 'You are not currently logged in.', 401);
+    }
+
+    let query = 'SELECT * FROM posts WHERE post_type = ?';
+    const params: any[] = ['post'];
+
+    if (!includeAllStatuses) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
 
     if (author) {
       query += ' AND author_id = ?';
@@ -110,20 +126,26 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
 
     // Order
     const orderMap: Record<string, string> = {
-      date: 'published_at',
+      date: 'COALESCE(published_at, created_at)',
       modified: 'updated_at',
       title: 'title',
       id: 'id'
     };
-    const orderColumn = orderMap[orderby] || 'published_at';
+    const orderColumn = orderMap[orderby] || 'COALESCE(published_at, created_at)';
     query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
     const result = await c.env.DB.prepare(query).bind(...params).all<Post>();
 
     // Get total count
-    let countQuery = 'SELECT COUNT(*) as count FROM posts WHERE post_type = ? AND status = ?';
-    const countParams: any[] = ['post', status];
+    let countQuery = 'SELECT COUNT(*) as count FROM posts WHERE post_type = ?';
+    const countParams: any[] = ['post'];
+
+    if (!includeAllStatuses) {
+      countQuery += ' AND status = ?';
+      countParams.push(status);
+    }
+
     if (author) {
       countQuery += ' AND author_id = ?';
       countParams.push(parseInt(author));
@@ -662,6 +684,82 @@ posts.put('/:id', authMiddleware, async (c) => {
   }
 });
 
+// POST /wp/v2/posts/:id/restore - Restore post from trash
+posts.post('/:id/restore', authMiddleware, async (c) => {
+  try {
+    const settings = await getSiteSettings(c.env);
+    const baseUrl = settings.site_url || 'http://localhost:8787';
+    const id = parseInt(c.req.param('id'));
+
+    const post = await c.env.DB.prepare('SELECT * FROM posts WHERE id = ? AND post_type = ?')
+      .bind(id, 'post')
+      .first<Post>();
+
+    if (!post) {
+      return createWPError('rest_post_invalid_id', 'Invalid post ID.', 404);
+    }
+
+    if (!(await canDeletePost(c, id))) {
+      return createWPError(
+        'rest_cannot_edit',
+        'Sorry, you are not allowed to restore this post.',
+        403
+      );
+    }
+
+    if (post.status !== 'trash') {
+      return createWPError('rest_invalid_param', 'Post is not in trash.', 400);
+    }
+
+    const previousStatusResult = await c.env.DB.prepare(
+      'SELECT meta_value FROM post_meta WHERE post_id = ? AND meta_key = ? ORDER BY id DESC LIMIT 1'
+    )
+      .bind(id, '_previous_status')
+      .first<{ meta_value: string | null }>();
+
+    const allowedStatuses = new Set(['publish', 'draft', 'pending', 'private']);
+    const restoreStatus = previousStatusResult?.meta_value && allowedStatuses.has(previousStatusResult.meta_value)
+      ? previousStatusResult.meta_value
+      : 'draft';
+
+    const now = new Date().toISOString();
+    const publishedAt = restoreStatus === 'publish' ? (post.published_at || now) : post.published_at;
+
+    await c.env.DB.prepare(
+      'UPDATE posts SET status = ?, updated_at = ?, published_at = ? WHERE id = ?'
+    )
+      .bind(restoreStatus, now, publishedAt, id)
+      .run();
+
+    await c.env.DB.prepare('DELETE FROM post_meta WHERE post_id = ? AND meta_key = ?')
+      .bind(id, '_previous_status')
+      .run();
+
+    const restoredPost = await c.env.DB.prepare('SELECT * FROM posts WHERE id = ?')
+      .bind(id)
+      .first<Post>();
+
+    const categoryResult = await c.env.DB.prepare(
+      'SELECT category_id FROM post_categories WHERE post_id = ?'
+    )
+      .bind(id)
+      .all<{ category_id: number }>();
+    const categoryIds = categoryResult.results.map((r) => r.category_id);
+
+    const tagResult = await c.env.DB.prepare('SELECT tag_id FROM post_tags WHERE post_id = ?')
+      .bind(id)
+      .all<{ tag_id: number }>();
+    const tagIds = tagResult.results.map((r) => r.tag_id);
+
+    const formattedPost = formatPostResponse(restoredPost!, baseUrl, categoryIds, tagIds);
+    await sendWebhook(c.env, 'post.updated', formattedPost);
+
+    return c.json(formattedPost);
+  } catch (error: any) {
+    return createWPError('server_error', error.message, 500);
+  }
+});
+
 // DELETE /wp/v2/posts/:id - Delete post
 posts.delete('/:id', authMiddleware, async (c) => {
   try {
@@ -703,8 +801,20 @@ posts.delete('/:id', authMiddleware, async (c) => {
 
       return c.json({ deleted: true, previous: formattedPost });
     } else {
+      const now = new Date().toISOString();
+
+      await c.env.DB.prepare('DELETE FROM post_meta WHERE post_id = ? AND meta_key = ?')
+        .bind(id, '_previous_status')
+        .run();
+
+      await c.env.DB.prepare('INSERT INTO post_meta (post_id, meta_key, meta_value) VALUES (?, ?, ?)')
+        .bind(id, '_previous_status', post.status)
+        .run();
+
       // Move to trash
-      await c.env.DB.prepare('UPDATE posts SET status = ? WHERE id = ?').bind('trash', id).run();
+      await c.env.DB.prepare('UPDATE posts SET status = ?, updated_at = ? WHERE id = ?')
+        .bind('trash', now, id)
+        .run();
 
       const trashedPost = await c.env.DB.prepare('SELECT * FROM posts WHERE id = ?')
         .bind(id)

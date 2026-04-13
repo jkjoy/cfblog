@@ -1828,7 +1828,7 @@ app.get('/wp-admin', (c) => {
     async function loadStats() {
       try {
         const [posts, pages, comments, categories, tags, media, links, users, moments] = await Promise.all([
-          fetch(API_BASE + '/posts?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
+          fetch(API_BASE + '/posts?per_page=1&status=all', { headers: { 'Authorization': 'Bearer ' + authToken } }),
           fetch(API_BASE + '/pages?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
           fetch(API_BASE + '/comments?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
           fetch(API_BASE + '/categories?per_page=1', { headers: { 'Authorization': 'Bearer ' + authToken } }),
@@ -1854,6 +1854,72 @@ app.get('/wp-admin', (c) => {
     }
 
     // Posts Management
+    let currentPostStatusFilter = 'all';
+
+    function getPostStatusFilter() {
+      return document.getElementById('post-status-filter')?.value || currentPostStatusFilter || 'all';
+    }
+
+    async function fetchAllPosts(status = 'all') {
+      const perPage = 100;
+      const headers = { 'Authorization': 'Bearer ' + authToken };
+      const fetchPage = async (page) => {
+        const response = await fetch(API_BASE + '/posts?status=' + encodeURIComponent(status) + '&per_page=' + perPage + '&page=' + page, {
+          headers
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.message || '加载文章失败');
+        }
+
+        const posts = await response.json();
+        const totalPages = parseInt(response.headers.get('X-WP-TotalPages') || '1', 10);
+
+        return {
+          posts: Array.isArray(posts) ? posts : [],
+          totalPages
+        };
+      };
+
+      const firstPage = await fetchPage(1);
+      if (firstPage.totalPages <= 1) {
+        if (status === 'all') {
+          return firstPage.posts.filter((post) => post.status !== 'trash');
+        }
+
+        return firstPage.posts;
+      }
+
+      const remainingPages = await Promise.all(
+        Array.from({ length: firstPage.totalPages - 1 }, (_, index) => fetchPage(index + 2))
+      );
+
+      const allPosts = [
+        ...firstPage.posts,
+        ...remainingPages.flatMap((pageResult) => pageResult.posts)
+      ];
+
+      if (status === 'all') {
+        return allPosts.filter((post) => post.status !== 'trash');
+      }
+
+      return allPosts;
+    }
+
+    function sortAdminPosts(posts) {
+      return [...posts].sort((a, b) => {
+        const stickyDiff = Number(Boolean(b.sticky)) - Number(Boolean(a.sticky));
+        if (stickyDiff !== 0) {
+          return stickyDiff;
+        }
+
+        const aTime = new Date(a.modified || a.date || 0).getTime();
+        const bTime = new Date(b.modified || b.date || 0).getTime();
+        return bTime - aTime;
+      });
+    }
+
     async function showPosts() {
       renderLayout(i18n.t('nav.posts'));
       const content = document.querySelector('.content-area');
@@ -1861,24 +1927,39 @@ app.get('/wp-admin', (c) => {
       content.innerHTML = \`
         <div class="page-header">
           <h2>\${i18n.t('posts.allPosts')}</h2>
-          <button class="button" onclick="showCreatePostModal()">\${i18n.t('posts.addNew')}</button>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <select id="post-status-filter" style="padding: 8px;">
+              <option value="all">\${i18n.t('common.all')}</option>
+              <option value="publish">\${i18n.t('statusOptions.publish')}</option>
+              <option value="draft">\${i18n.t('statusOptions.draft')}</option>
+              <option value="pending">\${i18n.t('statusOptions.pending')}</option>
+              <option value="private">\${i18n.t('statusOptions.private')}</option>
+              <option value="trash">\${i18n.t('statusOptions.trash')}</option>
+            </select>
+            <button class="button" onclick="showCreatePostModal()">\${i18n.t('posts.addNew')}</button>
+          </div>
         </div>
         <div id="posts-list"></div>
       \`;
 
-      await loadPosts();
+      const filter = document.getElementById('post-status-filter');
+      filter.value = currentPostStatusFilter;
+      filter.addEventListener('change', (e) => {
+        currentPostStatusFilter = e.target.value;
+        loadPosts(currentPostStatusFilter);
+      });
+
+      await loadPosts(currentPostStatusFilter);
     }
 
-    async function loadPosts() {
+    async function loadPosts(status = getPostStatusFilter()) {
       try {
-        const response = await fetch(API_BASE + '/posts?per_page=50', {
-          headers: { 'Authorization': 'Bearer ' + authToken }
-        });
-        const posts = await response.json();
+        currentPostStatusFilter = status;
+        const posts = sortAdminPosts(await fetchAllPosts(status));
 
         const container = document.getElementById('posts-list');
         if (posts.length === 0) {
-          container.innerHTML = \`<div class="empty-state">\${i18n.t('posts.noPostsYet')}</div>\`;
+          container.innerHTML = \`<div class="empty-state">\${status === 'trash' ? '回收站里还没有文章。' : i18n.t('posts.noPostsYet')}</div>\`;
           return;
         }
 
@@ -1896,12 +1977,18 @@ app.get('/wp-admin', (c) => {
               <tbody>
                 \${posts.map(post => \`
                   <tr>
-                    <td><strong>\${post.sticky ? '📌 ' : ''}\${post.title.rendered}</strong></td>
+                    <td><strong>\${post.sticky ? '📌 ' : ''}\${escapeHtml(post.title.rendered)}</strong></td>
                     <td>\${translateStatus(post.status)}</td>
-                    <td>\${new Date(post.date).toLocaleDateString()}</td>
+                    <td>\${new Date(post.modified || post.date).toLocaleDateString()}</td>
                     <td class="actions">
                       <a href="#" class="action-link" onclick="editPost(\${post.id}); return false;">\${i18n.t('common.edit')}</a>
-                      <a href="#" class="action-link delete" onclick="deletePost(\${post.id}); return false;">\${i18n.t('common.delete')}</a>
+                      \${post.status === 'trash'
+                        ? \`
+                          <a href="#" class="action-link" onclick="restorePost(\${post.id}); return false;">还原</a>
+                          <a href="#" class="action-link delete" onclick="deletePostPermanently(\${post.id}); return false;">彻底删除</a>
+                        \`
+                        : \`<a href="#" class="action-link delete" onclick="deletePost(\${post.id}); return false;">\${i18n.t('common.delete')}</a>\`
+                      }
                     </td>
                   </tr>
                 \`).join('')}
@@ -1911,6 +1998,7 @@ app.get('/wp-admin', (c) => {
         \`;
       } catch (error) {
         console.error('加载失败 posts:', error);
+        showError(error.message || '加载文章失败');
       }
     }
 
@@ -1959,6 +2047,7 @@ app.get('/wp-admin', (c) => {
               <select name="status">
                 <option value="draft">草稿</option>
                 <option value="publish" selected>发布</option>
+                <option value="pending">待审核</option>
                 <option value="private">私密</option>
               </select>
             </div>
@@ -2184,7 +2273,9 @@ app.get('/wp-admin', (c) => {
               <select name="status">
                 <option value="draft" \${post.status === 'draft' ? 'selected' : ''}>草稿</option>
                 <option value="publish" \${post.status === 'publish' ? 'selected' : ''}>发布</option>
+                <option value="pending" \${post.status === 'pending' ? 'selected' : ''}>待审核</option>
                 <option value="private" \${post.status === 'private' ? 'selected' : ''}>私密</option>
+                <option value="trash" \${post.status === 'trash' ? 'selected' : ''}>回收站</option>
               </select>
             </div>
             <div class="form-group">
@@ -2315,16 +2406,68 @@ app.get('/wp-admin', (c) => {
     };
 
     window.deletePost = async function(id) {
-      if (!confirm('确定要删除 this post?')) return;
+      if (!confirm(i18n.t('posts.deleteConfirm'))) return;
 
       try {
-        await fetch(API_BASE + '/posts/' + id + '?force=true', {
+        const response = await fetch(API_BASE + '/posts/' + id, {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + authToken }
         });
-        await loadPosts();
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.message || '删除文章失败');
+        }
+
+        await loadPosts(currentPostStatusFilter);
+        showSuccess('文章已移入回收站');
       } catch (error) {
         console.error('删除失败 post:', error);
+        showError('删除文章失败: ' + error.message);
+      }
+    };
+
+    window.restorePost = async function(id) {
+      try {
+        const response = await fetch(API_BASE + '/posts/' + id + '/restore', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + authToken
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.message || '还原文章失败');
+        }
+
+        await loadPosts(currentPostStatusFilter);
+        showSuccess('文章已还原');
+      } catch (error) {
+        console.error('还原失败 post:', error);
+        showError('还原文章失败: ' + error.message);
+      }
+    };
+
+    window.deletePostPermanently = async function(id) {
+      if (!confirm('确定要彻底删除这篇文章吗？此操作不可恢复。')) return;
+
+      try {
+        const response = await fetch(API_BASE + '/posts/' + id + '?force=true', {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + authToken }
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.message || '彻底删除文章失败');
+        }
+
+        await loadPosts(currentPostStatusFilter);
+        showSuccess('文章已彻底删除');
+      } catch (error) {
+        console.error('彻底删除失败 post:', error);
+        showError('彻底删除文章失败: ' + error.message);
       }
     };
 
