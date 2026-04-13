@@ -5912,124 +5912,9 @@ https://example.com/image2.jpg"></textarea>
                 <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.adminEmailHint')}</small>
               </div>
 
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
-
-              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.emailNotifications')}</h3>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.fromName')}</label>
-                <input type="text" name="mail_from_name" value="\${settings.mail_from_name || settings.site_title || ''}" placeholder="CFBlog">
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.fromNameHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.fromEmail')}</label>
-                <input type="email" name="mail_from_email" value="\${settings.mail_from_email || ''}" placeholder="notifications@example.com">
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.fromEmailHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
-                  <input type="checkbox" name="mail_notifications_enabled" value="1" \${(settings.mail_notifications_enabled || '0') === '1' ? 'checked' : ''} style="width: auto;">
-                  \${i18n.t('settings.enableMailNotifications')}
-                </label>
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.enableMailNotificationsHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
-                  <input type="checkbox" name="notify_admin_on_comment" value="1" \${(settings.notify_admin_on_comment || '1') === '1' ? 'checked' : ''} style="width: auto;">
-                  \${i18n.t('settings.notifyAdminOnComment')}
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
-                  <input type="checkbox" name="notify_commenter_on_reply" value="1" \${(settings.notify_commenter_on_reply || '1') === '1' ? 'checked' : ''} style="width: auto;">
-                  \${i18n.t('settings.notifyCommenterOnReply')}
-                </label>
-              </div>
-
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
-
-              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.commentProtection')}</h3>
-
-              <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
-                  <input type="checkbox" name="comment_turnstile_enabled" value="1" \${(settings.comment_turnstile_enabled || '0') === '1' ? 'checked' : ''} style="width: auto;">
-                  \${i18n.t('settings.enableCommentTurnstile')}
-                </label>
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.enableCommentTurnstileHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.commentTurnstileSiteKey')}</label>
-                <input type="text" name="comment_turnstile_site_key" value="\${settings.comment_turnstile_site_key || ''}" placeholder="0x4AAAAA...">
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.commentTurnstileSiteKeyHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.commentTurnstileSecretKey')}</label>
-                <input type="password" name="comment_turnstile_secret_key" value="\${settings.comment_turnstile_secret_key || ''}" placeholder="0x4AAAAA...">
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.commentTurnstileSecretKeyHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
-                  <input type="checkbox" name="comment_moderation_first_comment" value="1" \${(settings.comment_moderation_first_comment || '1') === '1' ? 'checked' : ''} style="width: auto;">
-                  \${i18n.t('settings.commentFirstTimeModeration')}
-                </label>
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.commentFirstTimeModerationHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.commentRateLimitSeconds')}</label>
-                <input type="number" name="comment_rate_limit_seconds" min="1" value="\${settings.comment_rate_limit_seconds || '30'}">
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.commentRateLimitSecondsHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.commentMaxLinks')}</label>
-                <input type="number" name="comment_max_links" min="1" value="\${settings.comment_max_links || '2'}">
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.commentMaxLinksHint')}
-                </small>
-              </div>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.commentSpamKeywords')}</label>
-                <textarea name="comment_spam_keywords" style="min-height: 120px;">\${settings.comment_spam_keywords || ''}</textarea>
-                <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.commentSpamKeywordsHint')}
-                </small>
-              </div>
-
-              <div style="background: #fff8e5; border: 1px solid #dba617; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
-                <strong style="color: #8a5d00;">\${i18n.t('settings.commentWafTipsTitle')}</strong>
-                <div style="margin-top: 8px; color: #646970; font-size: 13px; line-height: 1.6;">
-                  \${i18n.t('settings.commentWafTipsBody')}
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>\${i18n.t('settings.siteDescription')}</label>
-                <textarea name="site_description" style="min-height: 100px;">\${settings.site_description || ''}</textarea>
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.siteDescription')}</label>
+	                <textarea name="site_description" style="min-height: 100px;">\${settings.site_description || ''}</textarea>
                 <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteDescriptionHint')}</small>
               </div>
 
@@ -6078,13 +5963,128 @@ https://example.com/image2.jpg"></textarea>
                 <label>\${i18n.t('settings.headHtml')}</label>
                 <textarea name="head_html" style="min-height: 120px; font-family: monospace; font-size: 13px;">\${settings.head_html || ''}</textarea>
                 <small style="color: #646970; display: block; margin-top: 5px;">
-                  \${i18n.t('settings.headHtmlHint')}
-                </small>
-              </div>
+	                  \${i18n.t('settings.headHtmlHint')}
+	                </small>
+	              </div>
 
-              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
+	              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
 
-              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.socialContacts')}</h3>
+	              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.emailNotifications')}</h3>
+
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.fromName')}</label>
+	                <input type="text" name="mail_from_name" value="\${settings.mail_from_name || settings.site_title || ''}" placeholder="CFBlog">
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.fromNameHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.fromEmail')}</label>
+	                <input type="email" name="mail_from_email" value="\${settings.mail_from_email || ''}" placeholder="notifications@example.com">
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.fromEmailHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+	                  <input type="checkbox" name="mail_notifications_enabled" value="1" \${(settings.mail_notifications_enabled || '0') === '1' ? 'checked' : ''} style="width: auto;">
+	                  \${i18n.t('settings.enableMailNotifications')}
+	                </label>
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.enableMailNotificationsHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+	                  <input type="checkbox" name="notify_admin_on_comment" value="1" \${(settings.notify_admin_on_comment || '1') === '1' ? 'checked' : ''} style="width: auto;">
+	                  \${i18n.t('settings.notifyAdminOnComment')}
+	                </label>
+	              </div>
+
+	              <div class="form-group">
+	                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+	                  <input type="checkbox" name="notify_commenter_on_reply" value="1" \${(settings.notify_commenter_on_reply || '1') === '1' ? 'checked' : ''} style="width: auto;">
+	                  \${i18n.t('settings.notifyCommenterOnReply')}
+	                </label>
+	              </div>
+
+	              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
+
+	              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.commentProtection')}</h3>
+
+	              <div class="form-group">
+	                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+	                  <input type="checkbox" name="comment_turnstile_enabled" value="1" \${(settings.comment_turnstile_enabled || '0') === '1' ? 'checked' : ''} style="width: auto;">
+	                  \${i18n.t('settings.enableCommentTurnstile')}
+	                </label>
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.enableCommentTurnstileHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.commentTurnstileSiteKey')}</label>
+	                <input type="text" name="comment_turnstile_site_key" value="\${settings.comment_turnstile_site_key || ''}" placeholder="0x4AAAAA...">
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.commentTurnstileSiteKeyHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.commentTurnstileSecretKey')}</label>
+	                <input type="password" name="comment_turnstile_secret_key" value="\${settings.comment_turnstile_secret_key || ''}" placeholder="0x4AAAAA...">
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.commentTurnstileSecretKeyHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+	                  <input type="checkbox" name="comment_moderation_first_comment" value="1" \${(settings.comment_moderation_first_comment || '1') === '1' ? 'checked' : ''} style="width: auto;">
+	                  \${i18n.t('settings.commentFirstTimeModeration')}
+	                </label>
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.commentFirstTimeModerationHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.commentRateLimitSeconds')}</label>
+	                <input type="number" name="comment_rate_limit_seconds" min="1" value="\${settings.comment_rate_limit_seconds || '30'}">
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.commentRateLimitSecondsHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.commentMaxLinks')}</label>
+	                <input type="number" name="comment_max_links" min="1" value="\${settings.comment_max_links || '2'}">
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.commentMaxLinksHint')}
+	                </small>
+	              </div>
+
+	              <div class="form-group">
+	                <label>\${i18n.t('settings.commentSpamKeywords')}</label>
+	                <textarea name="comment_spam_keywords" style="min-height: 120px;">\${settings.comment_spam_keywords || ''}</textarea>
+	                <small style="color: #646970; display: block; margin-top: 5px;">
+	                  \${i18n.t('settings.commentSpamKeywordsHint')}
+	                </small>
+	              </div>
+
+	              <div style="background: #fff8e5; border: 1px solid #dba617; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
+	                <strong style="color: #8a5d00;">\${i18n.t('settings.commentWafTipsTitle')}</strong>
+	                <div style="margin-top: 8px; color: #646970; font-size: 13px; line-height: 1.6;">
+	                  \${i18n.t('settings.commentWafTipsBody')}
+	                </div>
+	              </div>
+
+	              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
+
+	              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.socialContacts')}</h3>
 
               <div class="form-group">
                 <label>Telegram</label>
