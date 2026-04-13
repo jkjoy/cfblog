@@ -1,12 +1,12 @@
 {
   "format": "cfblog-import",
-  "version": "1.0",
+  "version": "1.1",
   "source": {
-    "platform": "wordpress",
+    "platform": "hugo",
     "site_name": "Example Blog",
     "site_url": "https://example.com",
     "exported_at": "2026-04-11T00:00:00.000Z",
-    "generator": "cfblog-wordpress-exporter/1.0.0"
+    "generator": "cfblog-hugo-converter/1.0.0"
   },
   "categories": [
     {
@@ -67,6 +67,26 @@
       "updated_at": "2026-04-01T08:00:00.000Z",
       "published_at": "2026-04-01T08:00:00.000Z",
       "comment_status": "closed"
+    }
+  ],
+  "moments": [
+    {
+      "content": "今天把 Hugo 的 memo 成功迁进来了。",
+      "status": "publish",
+      "created_at": "2026-04-10T18:30:00.000Z",
+      "updated_at": "2026-04-10T18:30:00.000Z",
+      "media_urls": [
+        "https://example.com/uploads/moment-1.jpg"
+      ],
+      "source": {
+        "id": "memo-001",
+        "url": "https://example.com/memo/memo-001"
+      },
+      "author": {
+        "username": "admin",
+        "display_name": "Site Admin",
+        "email": "admin@example.com"
+      }
     }
   ]
 }

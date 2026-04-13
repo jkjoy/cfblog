@@ -6,7 +6,7 @@ import { createWPError, generateSlug, getSiteSettings } from '../utils';
 const imports = new Hono<AppEnv>();
 
 const IMPORT_FORMAT = 'cfblog-import';
-const IMPORT_VERSION = '1.0';
+const IMPORT_VERSION = '1.1';
 const IMPORT_META_KEYS = [
   'import_source_platform',
   'import_source_site_name',
@@ -18,6 +18,7 @@ const IMPORT_META_KEYS = [
 
 type ConflictStrategy = 'skip' | 'update' | 'duplicate';
 type ImportPostType = 'post' | 'page';
+type ImportMomentStatus = 'publish' | 'draft' | 'trash';
 
 interface ImportSource {
   platform?: string;
@@ -63,6 +64,19 @@ interface ImportContentItem {
   author?: ImportAuthor;
 }
 
+interface ImportMomentItem {
+  content?: string;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+  media_urls?: string[];
+  source?: {
+    id?: string | number;
+    url?: string;
+  };
+  author?: ImportAuthor;
+}
+
 interface ImportPackage {
   format: string;
   version: string;
@@ -70,6 +84,7 @@ interface ImportPackage {
   categories?: ImportTaxonomyItem[];
   tags?: ImportTaxonomyItem[];
   content?: ImportContentItem[];
+  moments?: ImportMomentItem[];
 }
 
 interface ImportOptions {
@@ -86,8 +101,10 @@ interface ImportIssue {
 
 interface ImportSummary {
   total_content_items: number;
+  total_moment_items: number;
   posts_detected: number;
   pages_detected: number;
+  moments_detected: number;
   created: number;
   updated: number;
   skipped: number;
@@ -102,6 +119,10 @@ interface ContentMatch {
   id: number;
   slug: string;
   post_type: string;
+}
+
+interface MomentMatch {
+  id: number;
 }
 
 interface NormalizedImportConfig {
@@ -152,6 +173,16 @@ function normalizeCommentStatus(value: string | null): Post['comment_status'] {
   return value === 'closed' ? 'closed' : 'open';
 }
 
+function normalizeMomentStatus(value: string | null): ImportMomentStatus {
+  switch (value) {
+    case 'draft':
+    case 'trash':
+      return value;
+    default:
+      return 'publish';
+  }
+}
+
 function normalizeDate(value: string | null, fallback: string): string {
   if (!value) {
     return fallback;
@@ -165,6 +196,16 @@ function normalizeDate(value: string | null, fallback: string): string {
   return parsed.toISOString();
 }
 
+function normalizeMomentMediaUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => toStringValue(item))
+    .filter((item): item is string => !!item);
+}
+
 function humanizeSlug(slug: string): string {
   return slug
     .split('-')
@@ -173,11 +214,18 @@ function humanizeSlug(slug: string): string {
     .join(' ') || slug;
 }
 
-function createEmptySummary(contentCount: number, postsDetected: number, pagesDetected: number): ImportSummary {
+function createEmptySummary(
+  contentCount: number,
+  momentCount: number,
+  postsDetected: number,
+  pagesDetected: number
+): ImportSummary {
   return {
     total_content_items: contentCount,
+    total_moment_items: momentCount,
     posts_detected: postsDetected,
     pages_detected: pagesDetected,
+    moments_detected: momentCount,
     created: 0,
     updated: 0,
     skipped: 0,
@@ -194,11 +242,11 @@ function getImportTemplate(): ImportPackage {
     format: IMPORT_FORMAT,
     version: IMPORT_VERSION,
     source: {
-      platform: 'wordpress',
+      platform: 'hugo',
       site_name: 'Example Blog',
       site_url: 'https://example.com',
       exported_at: '2026-04-11T00:00:00.000Z',
-      generator: 'cfblog-wordpress-exporter/1.0.0'
+      generator: 'cfblog-hugo-converter/1.0.0'
     },
     categories: [
       {
@@ -260,6 +308,24 @@ function getImportTemplate(): ImportPackage {
         published_at: '2026-04-01T08:00:00.000Z',
         comment_status: 'closed'
       }
+    ],
+    moments: [
+      {
+        content: '今天把 Hugo 的 memo 成功迁进来了。',
+        status: 'publish',
+        created_at: '2026-04-10T18:30:00.000Z',
+        updated_at: '2026-04-10T18:30:00.000Z',
+        media_urls: ['https://example.com/uploads/moment-1.jpg'],
+        source: {
+          id: 'memo-001',
+          url: 'https://example.com/memo/memo-001'
+        },
+        author: {
+          username: 'admin',
+          display_name: 'Site Admin',
+          email: 'admin@example.com'
+        }
+      }
     ]
   };
 }
@@ -296,8 +362,11 @@ function validateImportPackage(importPackage: ImportPackage): string | null {
     return 'Unsupported import version. Expected version 1.x.';
   }
 
-  if (!Array.isArray(importPackage.content) || importPackage.content.length === 0) {
-    return 'Import package must include a non-empty content array.';
+  const hasContent = Array.isArray(importPackage.content) && importPackage.content.length > 0;
+  const hasMoments = Array.isArray(importPackage.moments) && importPackage.moments.length > 0;
+
+  if (!hasContent && !hasMoments) {
+    return 'Import package must include a non-empty content or moments array.';
   }
 
   return null;
@@ -445,6 +514,77 @@ async function findExistingImportedContent(
     .first<ContentMatch>();
 }
 
+async function findExistingImportedMoment(
+  env: AppEnv['Bindings'],
+  item: ImportMomentItem,
+  content: string,
+  createdAt: string,
+  source: ImportSource | undefined
+): Promise<MomentMatch | null> {
+  const sourceId = item.source?.id !== undefined && item.source?.id !== null
+    ? String(item.source.id)
+    : null;
+  const platform = toStringValue(source?.platform);
+  const siteUrl = toStringValue(source?.site_url);
+
+  if (sourceId && platform) {
+    const params: string[] = [sourceId, platform];
+    let query = `
+      SELECT m.id
+      FROM moments m
+      INNER JOIN moment_meta meta_source_id
+        ON meta_source_id.moment_id = m.id
+       AND meta_source_id.meta_key = 'import_source_id'
+       AND meta_source_id.meta_value = ?
+      INNER JOIN moment_meta meta_platform
+        ON meta_platform.moment_id = m.id
+       AND meta_platform.meta_key = 'import_source_platform'
+       AND meta_platform.meta_value = ?
+      WHERE 1 = 1
+    `;
+
+    if (siteUrl) {
+      query += `
+        AND EXISTS (
+          SELECT 1
+          FROM moment_meta meta_site
+          WHERE meta_site.moment_id = m.id
+            AND meta_site.meta_key = 'import_source_site_url'
+            AND meta_site.meta_value = ?
+        )
+      `;
+      params.push(siteUrl);
+    }
+
+    const importedMatch = await env.DB.prepare(query)
+      .bind(...params)
+      .first<MomentMatch>();
+
+    if (importedMatch) {
+      return importedMatch;
+    }
+  }
+
+  return await env.DB.prepare('SELECT id FROM moments WHERE content = ? AND created_at = ?')
+    .bind(content, createdAt)
+    .first<MomentMatch>();
+}
+
+function getImportMetaPairs(
+  importPackage: ImportPackage,
+  source: { id?: string | number; url?: string } | undefined,
+  author: ImportAuthor | undefined
+): Array<[string, string | null]> {
+  return [
+    ['import_source_platform', toStringValue(importPackage.source?.platform)],
+    ['import_source_site_name', toStringValue(importPackage.source?.site_name)],
+    ['import_source_site_url', toStringValue(importPackage.source?.site_url)],
+    ['import_source_id', source?.id !== undefined && source?.id !== null ? String(source.id) : null],
+    ['import_source_url', toStringValue(source?.url)],
+    ['import_source_author', author ? JSON.stringify(author) : null]
+  ];
+}
+
 async function syncImportMeta(
   env: AppEnv['Bindings'],
   postId: number,
@@ -459,14 +599,7 @@ async function syncImportMeta(
     .bind(postId, ...IMPORT_META_KEYS)
     .run();
 
-  const metaPairs: Array<[string, string | null]> = [
-    ['import_source_platform', toStringValue(importPackage.source?.platform)],
-    ['import_source_site_name', toStringValue(importPackage.source?.site_name)],
-    ['import_source_site_url', toStringValue(importPackage.source?.site_url)],
-    ['import_source_id', item.source?.id !== undefined && item.source?.id !== null ? String(item.source.id) : null],
-    ['import_source_url', toStringValue(item.source?.url)],
-    ['import_source_author', item.author ? JSON.stringify(item.author) : null]
-  ];
+  const metaPairs = getImportMetaPairs(importPackage, item.source, item.author);
 
   for (const [metaKey, metaValue] of metaPairs) {
     if (!metaValue) {
@@ -475,6 +608,33 @@ async function syncImportMeta(
 
     await env.DB.prepare('INSERT INTO post_meta (post_id, meta_key, meta_value) VALUES (?, ?, ?)')
       .bind(postId, metaKey, metaValue)
+      .run();
+  }
+}
+
+async function syncMomentImportMeta(
+  env: AppEnv['Bindings'],
+  momentId: number,
+  importPackage: ImportPackage,
+  item: ImportMomentItem
+): Promise<void> {
+  const deletePlaceholders = IMPORT_META_KEYS.map(() => '?').join(', ');
+
+  await env.DB.prepare(
+    `DELETE FROM moment_meta WHERE moment_id = ? AND meta_key IN (${deletePlaceholders})`
+  )
+    .bind(momentId, ...IMPORT_META_KEYS)
+    .run();
+
+  const metaPairs = getImportMetaPairs(importPackage, item.source, item.author);
+
+  for (const [metaKey, metaValue] of metaPairs) {
+    if (!metaValue) {
+      continue;
+    }
+
+    await env.DB.prepare('INSERT INTO moment_meta (moment_id, meta_key, meta_value) VALUES (?, ?, ?)')
+      .bind(momentId, metaKey, metaValue)
       .run();
   }
 }
@@ -538,6 +698,7 @@ imports.get('/', authMiddleware, requireRole('administrator'), async (c) => {
     conflict_strategies: ['update', 'skip', 'duplicate'],
     notes: [
       'Top-level content accepts both posts and pages. Use type="post" or type="page".',
+      'Top-level moments accepts short-form entries for /wp-json/wp/v2/moments imports.',
       'Categories and tags are matched by slug first, then by name.',
       'Imported media keeps remote URLs through featured_image_url. Binary media transfer is not included.'
     ],
@@ -569,9 +730,10 @@ imports.post('/', authMiddleware, requireRole('administrator'), async (c) => {
   }
 
   const contentItems = normalized.importPackage.content || [];
+  const momentItems = normalized.importPackage.moments || [];
   const postsDetected = contentItems.filter((item) => normalizeContentType(toStringValue(item.type)) === 'post').length;
   const pagesDetected = contentItems.length - postsDetected;
-  const summary = createEmptySummary(contentItems.length, postsDetected, pagesDetected);
+  const summary = createEmptySummary(contentItems.length, momentItems.length, postsDetected, pagesDetected);
   const issues: ImportIssue[] = [];
   const categoryIdMap = new Map<string, number>();
   const tagIdMap = new Map<string, number>();
@@ -951,6 +1113,101 @@ imports.post('/', authMiddleware, requireRole('administrator'), async (c) => {
     } catch (error: any) {
       summary.failed += 1;
       addIssue(issues, 'error', 'content', itemLabel, error.message || 'Failed to import content item.');
+    }
+  }
+
+  for (let index = 0; index < momentItems.length; index += 1) {
+    const item = momentItems[index];
+    const rawContent = toStringValue(item.content);
+    const itemLabel = String(item.source?.id ?? item.created_at ?? `moment-${index + 1}`);
+
+    if (!rawContent) {
+      summary.failed += 1;
+      addIssue(issues, 'error', 'content', itemLabel, 'Missing required field: content.');
+      continue;
+    }
+
+    const status = normalizeMomentStatus(toStringValue(item.status));
+    const createdAt = normalizeDate(toStringValue(item.created_at), now);
+    const updatedAt = normalizeDate(toStringValue(item.updated_at), createdAt);
+    const mediaUrls = normalizeMomentMediaUrls(item.media_urls);
+    const existing = await findExistingImportedMoment(
+      c.env,
+      item,
+      rawContent,
+      createdAt,
+      normalized.importPackage.source
+    );
+
+    if (existing && normalized.options.conflict_strategy === 'skip') {
+      summary.skipped += 1;
+      addIssue(issues, 'warning', 'content', itemLabel, 'Skipped because matching moment already exists.');
+      continue;
+    }
+
+    if (dryRun) {
+      if (existing && normalized.options.conflict_strategy === 'update') {
+        summary.updated += 1;
+      } else {
+        summary.created += 1;
+      }
+      continue;
+    }
+
+    try {
+      if (existing && normalized.options.conflict_strategy === 'update') {
+        await c.env.DB.prepare(`
+          UPDATE moments
+          SET content = ?,
+              status = ?,
+              media_urls = ?,
+              author_id = ?,
+              created_at = ?,
+              updated_at = ?
+          WHERE id = ?
+        `)
+          .bind(
+            rawContent,
+            status,
+            JSON.stringify(mediaUrls),
+            currentUser.userId,
+            createdAt,
+            updatedAt,
+            existing.id
+          )
+          .run();
+
+        await syncMomentImportMeta(c.env, existing.id, normalized.importPackage, item);
+        summary.updated += 1;
+      } else {
+        const insertResult = await c.env.DB.prepare(`
+          INSERT INTO moments (
+            content,
+            author_id,
+            status,
+            media_urls,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?)
+        `)
+          .bind(
+            rawContent,
+            currentUser.userId,
+            status,
+            JSON.stringify(mediaUrls),
+            createdAt,
+            updatedAt
+          )
+          .run();
+
+        const momentId = insertResult.meta.last_row_id;
+        await syncMomentImportMeta(c.env, momentId, normalized.importPackage, item);
+        summary.created += 1;
+      }
+    } catch (error: any) {
+      summary.failed += 1;
+      addIssue(issues, 'error', 'content', itemLabel, error.message || 'Failed to import moment item.');
     }
   }
 

@@ -10,7 +10,8 @@
     "deploy": "npx wrangler deploy",
     "db:init": "npx wrangler d1 execute cfblog-db --file=./schema.sql --remote",
     "db:migrate": "npx wrangler d1 migrations apply cfblog-db",
-    "db:migrate:remote": "npx wrangler d1 migrations apply cfblog-db --remote"
+    "db:migrate:remote": "npx wrangler d1 migrations apply cfblog-db --remote",
+    "convert:hugo": "node ./scripts/convert-hugo-content.mjs"
   },
   "keywords": [
     "cloudflare",

@@ -1205,11 +1205,11 @@ app.get('/wp-admin', (c) => {
           links: { title: '友情链接', allLinks: '所有链接', addNew: '添加链接', createNew: '创建新链接', editLink: '编辑链接', siteName: '网站名称', siteUrl: '网站地址', linkDescription: '链接描述', avatarUrl: '头像 URL', linkCategory: '链接分类', target: '打开方式', visible: '可见', sortOrder: '排序', noLinks: '还没有链接。', createLink: '创建链接', updateLink: '更新链接', deleteConfirm: '确定要删除这个链接吗？', manageCategories: '管理分类', lowerFirst: '数字越小排序越靠前' },
           import: {
             title: '内容导入',
-            subtitle: '导入固定 JSON 格式的文章和页面，适合从 WordPress / Typecho 导出的数据包迁移。',
+            subtitle: '导入固定 JSON 格式的文章、页面和动态，适合从 Hugo / WordPress / Typecho 导出的数据包迁移。',
             fileLabel: '选择 JSON 文件',
             fileHint: '也可以直接把导出的 JSON 粘贴到下方文本框。',
             textareaLabel: '导入 JSON',
-            formatHint: '固定格式：format=cfblog-import，version=1.x，数据放在 content 数组里。',
+            formatHint: '固定格式：format=cfblog-import，version=1.x；文章/页面放在 content，动态放在 moments。',
             strategyLabel: '冲突策略',
             strategyUpdate: '更新同 slug 内容',
             strategySkip: '跳过已存在内容',
@@ -1327,11 +1327,11 @@ app.get('/wp-admin', (c) => {
           links: { title: 'Links', allLinks: 'All Links', addNew: 'Add New', createNew: 'Create New Link', editLink: 'Edit Link', siteName: 'Site Name', siteUrl: 'Site URL', linkDescription: 'Link Description', avatarUrl: 'Avatar URL', linkCategory: 'Link Category', target: 'Target', visible: 'Visible', sortOrder: 'Sort Order', noLinks: 'No links yet.', createLink: 'Create Link', updateLink: 'Update Link', deleteConfirm: 'Are you sure you want to delete this link?', manageCategories: 'Manage Categories', lowerFirst: 'Lower numbers appear first' },
           import: {
             title: 'Content Import',
-            subtitle: 'Import posts and pages from a fixed JSON package. Useful for WordPress / Typecho migrations.',
+            subtitle: 'Import posts, pages, and moments from a fixed JSON package. Useful for Hugo / WordPress / Typecho migrations.',
             fileLabel: 'Choose JSON file',
             fileHint: 'You can also paste the exported JSON into the textarea below.',
             textareaLabel: 'Import JSON',
-            formatHint: 'Expected format: format=cfblog-import, version=1.x, and items inside the content array.',
+            formatHint: 'Expected format: format=cfblog-import, version=1.x, with posts/pages in content and short-form entries in moments.',
             strategyLabel: 'Conflict strategy',
             strategyUpdate: 'Update existing item by slug',
             strategySkip: 'Skip existing item',
@@ -5356,8 +5356,9 @@ https://example.com/image2.jpg"></textarea>
               <label>\${i18n.t('import.textareaLabel')}</label>
               <textarea id="import-json-input" style="min-height: 520px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px;" placeholder='{
   "format": "cfblog-import",
-  "version": "1.0",
-  "content": []
+  "version": "1.1",
+  "content": [],
+  "moments": []
 }'></textarea>
             </div>
 
@@ -5504,6 +5505,7 @@ https://example.com/image2.jpg"></textarea>
         <div style="display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-bottom: 20px;">
           \${statCard(i18n.t('nav.posts'), summary.posts_detected)}
           \${statCard(i18n.t('nav.pages'), summary.pages_detected)}
+          \${statCard(i18n.t('nav.moments'), summary.moments_detected)}
           \${statCard(i18n.t('import.summaryCreated'), summary.created)}
           \${statCard(i18n.t('import.summaryUpdated'), summary.updated)}
           \${statCard(i18n.t('import.summarySkipped'), summary.skipped)}

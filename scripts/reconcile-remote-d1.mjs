@@ -187,6 +187,17 @@ const migrationPlan = [
       executeFile(`migrations/${this.id}`);
     },
   },
+  {
+    id: '0004_add_moment_meta.sql',
+    description: 'moment_meta table and idx_moment_meta_key index',
+    isSatisfied() {
+      return tableExists('moment_meta') && indexExists('idx_moment_meta_key');
+    },
+    reconcile() {
+      console.log(`Applying compatibility migration ${this.id}...`);
+      executeFile(`migrations/${this.id}`);
+    },
+  },
 ];
 
 function main() {

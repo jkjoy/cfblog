@@ -202,6 +202,14 @@ CREATE TABLE IF NOT EXISTS post_meta (
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS moment_meta (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    moment_id INTEGER NOT NULL,
+    meta_key TEXT NOT NULL,
+    meta_value TEXT,
+    FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS user_meta (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -224,6 +232,7 @@ CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status);
 CREATE INDEX IF NOT EXISTS idx_media_author ON media(author_id);
 CREATE INDEX IF NOT EXISTS idx_media_type ON media(mime_type);
 CREATE INDEX IF NOT EXISTS idx_post_meta_key ON post_meta(post_id, meta_key);
+CREATE INDEX IF NOT EXISTS idx_moment_meta_key ON moment_meta(moment_id, meta_key);
 CREATE INDEX IF NOT EXISTS idx_user_meta_key ON user_meta(user_id, meta_key);
 CREATE INDEX IF NOT EXISTS idx_site_settings_key ON site_settings(setting_key);
 CREATE INDEX IF NOT EXISTS idx_links_category ON links(category_id);
