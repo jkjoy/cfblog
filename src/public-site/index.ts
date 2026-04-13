@@ -568,15 +568,21 @@ async function renderContentBySlug(c: AppContext): Promise<Response> {
       <header>
         <h1>${escapeHtml(detail.title)}</h1>
         <div class="article-meta">
-          <span class="article-meta-item">
+          <span class="article-meta-item is-date">
+            ${renderIcon('calendar')}
+            <time datetime="${escapeAttribute(detail.publishedAt)}">${escapeHtml(formatArticleMetaDate(detail.publishedAt))}</time>
+          </span>
+          <span class="article-meta-item is-count">
+            ${renderIcon('pen')}
+            <span>${detail.contentText.length || 1}字</span>
+          </span>
+          <span class="article-meta-item is-reading">
             ${renderIcon('clock')}
-            <time>${escapeHtml(detail.dateLabel)}</time>
-            <span class="count"><strong>${detail.contentText.length || 1}</strong>字</span>
-            <span class="time"><strong>${detail.readingMinutes}</strong>分钟</span>
+            <span>${detail.readingMinutes}分钟</span>
           </span>
           ${
             detail.categories[0]
-              ? `<a class="article-meta-item" href="/categories/${encodeURIComponent(detail.categories[0].slug)}">${renderIcon('category')}<span>${escapeHtml(detail.categories[0].name)}</span></a>`
+              ? `<a class="article-meta-item is-category" href="/categories/${encodeURIComponent(detail.categories[0].slug)}">${renderIcon('category')}<span>${escapeHtml(detail.categories[0].name)}</span></a>`
               : ''
           }
         </div>
@@ -2245,8 +2251,12 @@ function renderIcon(name: string): string {
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.662c2 2.338 2 4.338 0 6.338c3 .5 4.5 1 5 4c2 -3 6 -4 9 0c0 -3 1 -4 4 -4.004q -3 -2.995 0 -5.996c-3 0 -5 -2 -5 -5c-2 4 -5 3 -7.5 -1c-.5 3 -2.5 5 -5.5 5.662"></path></svg>';
     case 'shield':
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#fff" d="M269.4 2.9C265.2 1 260.7 0 256 0s-9.2 1-13.4 2.9L54.3 82.8c-22 9.3-38.4 31-38.3 57.2c.5 99.2 41.3 280.7 213.6 363.2c16.7 8 36.1 8 52.8 0C454.7 420.7 495.5 239.2 496 140c.1-26.2-16.3-47.9-38.3-57.2L269.4 2.9zM144 221.3c0-33.8 27.4-61.3 61.3-61.3c16.2 0 31.8 6.5 43.3 17.9l7.4 7.4 7.4-7.4c11.5-11.5 27.1-17.9 43.3-17.9c33.8 0 61.3 27.4 61.3 61.3c0 16.2-6.5 31.8-17.9 43.3l-82.7 82.7c-6.2 6.2-16.4 6.2-22.6 0l-82.7-82.7c-11.5-11.5-17.9-27.1-17.9-43.3z"></path></svg>';
+    case 'calendar':
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M3 10h18"></path></svg>';
     case 'clock':
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>';
+    case 'pen':
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1l1-4z"></path></svg>';
     case 'category':
       return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"></path><path d="M7 12h13"></path><path d="M10 18h10"></path></svg>';
     case 'tag':
@@ -2556,6 +2566,21 @@ function formatLongDate(value: string | null | undefined): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatArticleMetaDate(value: string | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}年${month}月${day}日`;
 }
 
 function formatThemeCardDate(value: string | null | undefined): string {

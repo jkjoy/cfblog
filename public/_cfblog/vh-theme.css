@@ -1612,39 +1612,49 @@ article.vh-article-main > header > .article-meta {
   box-sizing: border-box;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.88rem;
   font-size: 0.85rem;
   width: 100%;
-  height: 0.98rem;
-  overflow: hidden;
+  min-height: 0.98rem;
 }
 article.vh-article-main > header > .article-meta > .article-meta-item {
   display: flex;
   align-items: center;
-  gap: 0.18rem;
+  gap: 0.32rem;
   width: max-content;
+  color: var(--vh-font-66);
 }
 article.vh-article-main > header > .article-meta > .article-meta-item > svg {
   flex-shrink: 0;
-  height: 0.888rem;
+  height: 0.92rem;
   width: auto;
   object-fit: contain;
 }
 article.vh-article-main > header > .article-meta > .article-meta-item > time {
   color: var(--vh-font-66);
 }
-article.vh-article-main > header > .article-meta > .article-meta-item > span.count {
-  padding-left: 0.38rem;
+article.vh-article-main > header > .article-meta > .article-meta-item.is-count {
   color: #3FA67F;
 }
-article.vh-article-main > header > .article-meta > .article-meta-item > span.count strong {
+article.vh-article-main > header > .article-meta > .article-meta-item.is-count > svg,
+article.vh-article-main > header > .article-meta > .article-meta-item.is-count > span {
   color: #3FA67F;
 }
-article.vh-article-main > header > .article-meta > .article-meta-item > span.time {
+article.vh-article-main > header > .article-meta > .article-meta-item.is-reading {
   color: #E9B740;
 }
-article.vh-article-main > header > .article-meta > .article-meta-item > span.time strong {
+article.vh-article-main > header > .article-meta > .article-meta-item.is-reading > svg,
+article.vh-article-main > header > .article-meta > .article-meta-item.is-reading > span {
   color: #E9B740;
+}
+article.vh-article-main > header > .article-meta > .article-meta-item.is-date > svg,
+article.vh-article-main > header > .article-meta > .article-meta-item.is-date > time {
+  color: var(--vh-font-66);
+}
+article.vh-article-main > header > .article-meta > .article-meta-item.is-category > svg,
+article.vh-article-main > header > .article-meta > .article-meta-item.is-category > span {
+  color: var(--vh-font-color);
 }
 article.vh-article-main > main {
   box-sizing: border-box;
