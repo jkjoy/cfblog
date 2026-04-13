@@ -639,6 +639,22 @@ async function syncMomentImportMeta(
   }
 }
 
+async function ensureMomentMetaTable(env: AppEnv['Bindings']): Promise<void> {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS moment_meta (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      moment_id INTEGER NOT NULL,
+      meta_key TEXT NOT NULL,
+      meta_value TEXT,
+      FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE
+    )
+  `).run();
+
+  await env.DB.prepare(
+    'CREATE INDEX IF NOT EXISTS idx_moment_meta_key ON moment_meta(moment_id, meta_key)'
+  ).run();
+}
+
 async function replacePostRelations(
   env: AppEnv['Bindings'],
   postId: number,
@@ -742,6 +758,10 @@ imports.post('/', authMiddleware, requireRole('administrator'), async (c) => {
   const now = new Date().toISOString();
   const currentUser = c.get('user') as JWTPayload;
   const dryRun = normalized.options.dry_run;
+
+  if (momentItems.length > 0) {
+    await ensureMomentMetaTable(c.env);
+  }
 
   const rememberTaxonomyKeys = (keys: string[], id: number) => {
     for (const key of keys) {

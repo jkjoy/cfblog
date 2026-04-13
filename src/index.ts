@@ -5447,7 +5447,16 @@ https://example.com/image2.jpg"></textarea>
             })
           });
 
-          const result = await response.json();
+          const responseText = await response.text();
+          let result = {};
+
+          try {
+            result = responseText ? JSON.parse(responseText) : {};
+          } catch {
+            result = {
+              message: responseText || ('HTTP ' + response.status)
+            };
+          }
 
           if (!response.ok) {
             renderImportResult({
