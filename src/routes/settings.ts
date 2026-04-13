@@ -40,6 +40,7 @@ settings.get('/', async (c) => {
     const sensitiveFields = [
       'webhook_secret',
       'webhook_url',
+      'comment_turnstile_secret_key',
       'mail_notifications_enabled',
       'notify_admin_on_comment',
       'notify_commenter_on_reply',

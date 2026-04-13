@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS moment_comments (
     author_url TEXT,
     author_ip TEXT,
     content TEXT NOT NULL,
-    status TEXT DEFAULT 'approved' CHECK(status IN ('approved', 'pending', 'spam', 'trash')),
+    status TEXT DEFAULT 'pending' CHECK(status IN ('approved', 'pending', 'spam', 'trash')),
     user_id INTEGER,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE,
@@ -229,6 +229,8 @@ CREATE INDEX IF NOT EXISTS idx_posts_featured_media ON posts(featured_media_id);
 CREATE INDEX IF NOT EXISTS idx_posts_featured_image_url ON posts(featured_image_url);
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_comments_status ON comments(status);
+CREATE INDEX IF NOT EXISTS idx_comments_author_ip_created ON comments(author_ip, created_at);
+CREATE INDEX IF NOT EXISTS idx_comments_author_email_created ON comments(author_email, created_at);
 CREATE INDEX IF NOT EXISTS idx_media_author ON media(author_id);
 CREATE INDEX IF NOT EXISTS idx_media_type ON media(mime_type);
 CREATE INDEX IF NOT EXISTS idx_post_meta_key ON post_meta(post_id, meta_key);
@@ -244,6 +246,8 @@ CREATE INDEX IF NOT EXISTS idx_moments_created ON moments(created_at);
 CREATE INDEX IF NOT EXISTS idx_moment_comments_moment ON moment_comments(moment_id);
 CREATE INDEX IF NOT EXISTS idx_moment_comments_parent ON moment_comments(parent_id);
 CREATE INDEX IF NOT EXISTS idx_moment_comments_status ON moment_comments(status);
+CREATE INDEX IF NOT EXISTS idx_moment_comments_author_ip_created ON moment_comments(author_ip, created_at);
+CREATE INDEX IF NOT EXISTS idx_moment_comments_author_email_created ON moment_comments(author_email, created_at);
 
 -- Insert default options
 INSERT OR IGNORE INTO options (option_name, option_value, autoload) VALUES
@@ -269,6 +273,13 @@ INSERT OR IGNORE INTO site_settings (setting_key, setting_value) VALUES
 ('site_description', '基于 Cloudflare Workers + D1 + R2 构建的现代化博客系统'),
 ('site_keywords', 'blog, cloudflare, workers, vue3, typescript'),
 ('site_author', 'CFBlog'),
+('comment_turnstile_enabled', '0'),
+('comment_turnstile_site_key', ''),
+('comment_turnstile_secret_key', ''),
+('comment_moderation_first_comment', '1'),
+('comment_rate_limit_seconds', '30'),
+('comment_max_links', '2'),
+('comment_spam_keywords', ''),
 ('mail_notifications_enabled', '0'),
 ('notify_admin_on_comment', '1'),
 ('notify_commenter_on_reply', '1'),

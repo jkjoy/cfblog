@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { marked } from 'marked';
 import type { AppEnv, Env } from '../types';
+import { getPublicCommentProtectionSettings } from '../comment-security';
 import { getSiteSettings, md5, normalizeBaseUrl } from '../utils';
 import { PUBLIC_SITE_CSS, PUBLIC_SITE_JS } from './assets';
 
@@ -19,6 +20,8 @@ interface SiteMeta {
   adminEmail: string;
   authorName: string;
   baseUrl: string;
+  commentTurnstileEnabled: boolean;
+  commentTurnstileSiteKey: string;
   description: string;
   faviconUrl: string;
   footerHtml: string;
@@ -504,7 +507,16 @@ async function renderMomentsPage(c: AppContext): Promise<Response> {
       main: `
         ${renderToolPage({
           content: moments.items.length
-            ? moments.items.map((item) => renderMomentItem(item)).join('')
+            ? moments.items
+                .map((item) =>
+                  renderMomentItem(
+                    item,
+                    common.site.commentTurnstileEnabled
+                      ? common.site.commentTurnstileSiteKey
+                      : '',
+                  ),
+                )
+                .join('')
             : '<section class="vh-page-section"><p>还没有公开动态。</p></section>',
           description: `第 ${moments.pagination.page} / ${Math.max(moments.pagination.totalPages, 1)} 页，共 ${moments.pagination.totalItems} 条动态。`,
           note:
@@ -634,7 +646,12 @@ async function renderContentBySlug(c: AppContext): Promise<Response> {
           <section class="vh-page-section">
             <h2>发表评论</h2>
             <p>雁过留声，人过留名</p>
-            ${renderCommentForm({ formId: articleCommentFormId, id: detail.id, kind: 'post' })}
+            ${renderCommentForm({
+              formId: articleCommentFormId,
+              id: detail.id,
+              kind: 'post',
+              turnstileSiteKey: common.site.commentTurnstileEnabled ? common.site.commentTurnstileSiteKey : '',
+            })}
           </section>
         </section>
       </footer>
@@ -757,12 +774,15 @@ async function getSiteMeta(env: Env, requestUrl: string): Promise<SiteMeta> {
     '/assets/images/logo.png';
   const socialLinks = buildSocialLinks(rawSettings);
   const noticeHtml = renderNoticeHtml(String(rawSettings.site_notice || '').trim());
+  const commentProtection = getPublicCommentProtectionSettings(rawSettings);
 
   return {
     adminAvatarUrl,
     adminEmail,
     authorName,
     baseUrl,
+    commentTurnstileEnabled: commentProtection.turnstileEnabled,
+    commentTurnstileSiteKey: commentProtection.turnstileSiteKey,
     description,
     faviconUrl,
     footerHtml:
@@ -1420,9 +1440,14 @@ function renderLayout(input: {
       --vh-main-max-width: 1458px;
       --vh-main-header-height: ${headerHeight};
       --vh-home-banner: url('/assets/images/home-banner.webp') no-repeat center 60%/cover;
-    }
+  }
   </style>
   ${input.common.site.headHtml}
+  ${
+    input.common.site.commentTurnstileEnabled && input.common.site.commentTurnstileSiteKey
+      ? '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'
+      : ''
+  }
 </head>
 <body>
   ${renderMobileSidebar(input.common, input.activePath)}
@@ -1768,7 +1793,7 @@ function renderLinkItem(item: LinkItem): string {
   `;
 }
 
-function renderMomentItem(item: MomentItem): string {
+function renderMomentItem(item: MomentItem, turnstileSiteKey = ''): string {
   const mediaUrls = item.mediaUrls.slice(0, 9);
   const mediaHtml = mediaUrls.length
     ? `<div class="vh-img-flex" data-media-count="${mediaUrls.length}">${mediaUrls
@@ -1833,6 +1858,7 @@ function renderMomentItem(item: MomentItem): string {
           formId,
           id: item.id,
           kind: 'moment',
+          turnstileSiteKey,
         })}
       </section>
     </article>
@@ -1937,6 +1963,7 @@ function renderCommentForm(input: {
   formId: string;
   id: number;
   kind: 'moment' | 'post';
+  turnstileSiteKey?: string;
 }): string {
   return `
     <form
@@ -1965,10 +1992,27 @@ function renderCommentForm(input: {
         <span>网址（可选）</span>
         <input name="author_url" type="url" placeholder="https://example.com">
       </label>
+      <input
+        name="website"
+        type="text"
+        tabindex="-1"
+        autocomplete="off"
+        style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;"
+        aria-hidden="true"
+      >
       <label>
         <span>评论内容</span>
         <textarea name="content" required placeholder="写下你的看法…"></textarea>
       </label>
+      ${
+        input.turnstileSiteKey
+          ? `
+            <div class="comment-form-turnstile">
+              <div class="cf-turnstile" data-sitekey="${escapeAttribute(input.turnstileSiteKey)}"></div>
+            </div>
+          `
+          : ''
+      }
       <div class="comment-form-actions">
         <button type="submit">提交评论</button>
         <span class="status-message" data-comment-status></span>

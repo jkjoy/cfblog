@@ -9,6 +9,12 @@ import {
   sendWebhook
 } from '../utils';
 import { sendCommentNotifications } from '../mail';
+import {
+  applyCountDelta,
+  getApprovedStatusDelta,
+  getRequestIp,
+  moderateCommentSubmission,
+} from '../comment-security';
 
 const comments = new Hono<AppEnv>();
 
@@ -212,7 +218,17 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
     const body = await c.req.json();
-    let { post, parent, author, author_name, author_email, author_url, content } = body;
+    let {
+      post,
+      parent,
+      author,
+      author_name,
+      author_email,
+      author_url,
+      content,
+      turnstile_token,
+      website,
+    } = body;
     let postId = Number(post || 0);
     const parentId = Number(parent || 0);
     let parentCommentRecord: ParentCommentRecord | null = null;
@@ -310,12 +326,30 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
     }
 
     // Get IP from request
-    const authorIp = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || '';
+    const authorIp = getRequestIp(c);
 
     const now = new Date().toISOString();
 
-    // Determine comment status (can add moderation logic here)
-    const commentStatus = 'approved'; // For now, auto-approve all comments
+    const moderation = await moderateCommentSubmission({
+      authorEmail: commentAuthorEmail,
+      authorIp,
+      authorUrl: commentAuthorUrl,
+      content: String(content).trim(),
+      env: c.env,
+      honeypot: website,
+      resourceColumn: 'post_id',
+      resourceId: postId,
+      settings,
+      table: 'comments',
+      turnstileToken: turnstile_token,
+      userId,
+    });
+
+    if (moderation.errorMessage) {
+      return createWPError('rest_comment_rejected', moderation.errorMessage, moderation.errorStatus || 400);
+    }
+
+    const commentStatus = moderation.status || 'pending';
 
     // Insert comment
     const result = await c.env.DB.prepare(`
@@ -340,9 +374,9 @@ comments.post('/', optionalAuthMiddleware, async (c) => {
     const commentId = result.meta.last_row_id;
 
     // Update comment count
-    await c.env.DB.prepare('UPDATE posts SET comment_count = comment_count + 1 WHERE id = ?')
-      .bind(postId)
-      .run();
+    if (commentStatus === 'approved') {
+      await applyCountDelta(c.env, 'posts', postId, 1);
+    }
 
     // Get the created comment
     const newComment = await c.env.DB.prepare(`
@@ -480,6 +514,12 @@ comments.put('/:id', authMiddleware, async (c) => {
 
     await c.env.DB.prepare(updateQuery).bind(...params).run();
 
+    const nextStatus = status !== undefined ? status : existingComment.status;
+    const countDelta = getApprovedStatusDelta(existingComment.status, nextStatus);
+    if (countDelta !== 0) {
+      await applyCountDelta(c.env, 'posts', existingComment.post_id, countDelta);
+    }
+
     // Get updated comment
     const updatedComment = await c.env.DB.prepare(`
       SELECT c.*, p.slug as post_slug, p.title as post_title
@@ -546,10 +586,7 @@ comments.delete('/:id', authMiddleware, async (c) => {
       // Permanently delete
       await c.env.DB.prepare('DELETE FROM comments WHERE id = ?').bind(id).run();
 
-      // Update comment count
-      await c.env.DB.prepare('UPDATE posts SET comment_count = comment_count - 1 WHERE id = ?')
-        .bind(comment.post_id)
-        .run();
+      await applyCountDelta(c.env, 'posts', comment.post_id, comment.status === 'approved' ? -1 : 0);
 
       const formattedComment = await formatCommentResponse(
         comment,
@@ -568,6 +605,8 @@ comments.delete('/:id', authMiddleware, async (c) => {
       await c.env.DB.prepare('UPDATE comments SET status = ? WHERE id = ?')
         .bind('trash', id)
         .run();
+
+      await applyCountDelta(c.env, 'posts', comment.post_id, comment.status === 'approved' ? -1 : 0);
 
       const trashedComment = await c.env.DB.prepare(`
         SELECT c.*, p.slug as post_slug, p.title as post_title

@@ -1712,6 +1712,8 @@ export const PUBLIC_SITE_JS = String.raw`(() => {
         author_email: String(formData.get('author_email') || '').trim(),
         author_url: String(formData.get('author_url') || '').trim(),
         content: String(formData.get('content') || '').trim(),
+        turnstile_token: String(formData.get('cf-turnstile-response') || '').trim(),
+        website: String(formData.get('website') || '').trim(),
       };
 
       if (!payload.content) {
@@ -1767,13 +1769,21 @@ export const PUBLIC_SITE_JS = String.raw`(() => {
           throw new Error(errorData.message || '评论提交失败，请稍后重试。');
         }
 
+        const result = await response.json().catch(() => ({}));
+        const commentStatus = String(result?.status || 'approved');
+
         commentForm.reset();
         resetReplyState();
         if (status) {
-          status.textContent = '评论已发布，页面即将刷新。';
+          status.textContent =
+            commentStatus === 'approved'
+              ? '评论已发布，页面即将刷新。'
+              : '评论已提交，正在等待审核。';
           status.dataset.state = 'success';
         }
-        window.setTimeout(() => window.location.reload(), 900);
+        if (commentStatus === 'approved') {
+          window.setTimeout(() => window.location.reload(), 900);
+        }
       } catch (error) {
         if (status) {
           status.textContent = error instanceof Error ? error.message : '评论提交失败，请稍后重试。';

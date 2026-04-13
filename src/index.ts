@@ -1255,6 +1255,23 @@ app.get('/wp-admin', (c) => {
             enableMailNotificationsHint: '需要先在 Worker 中配置 <code>RESEND_API_KEY</code> Secret。',
             notifyAdminOnComment: '有新评论时通知管理员',
             notifyCommenterOnReply: '有人回复评论时通知原评论者',
+            commentProtection: '评论防护',
+            enableCommentTurnstile: '启用 Turnstile 人机验证',
+            enableCommentTurnstileHint: '建议对匿名评论启用。需同时填写 Site Key 和 Secret Key。',
+            commentTurnstileSiteKey: 'Turnstile Site Key',
+            commentTurnstileSiteKeyHint: '前台评论表单使用的公开站点密钥。',
+            commentTurnstileSecretKey: 'Turnstile Secret Key',
+            commentTurnstileSecretKeyHint: '服务端验证评论提交时使用的密钥，不会公开给访客。',
+            commentFirstTimeModeration: '首次评论进入审核',
+            commentFirstTimeModerationHint: '未登录且从未有过已批准评论记录的邮箱，首次留言会进入待审核。',
+            commentRateLimitSeconds: '评论频率限制（秒）',
+            commentRateLimitSecondsHint: '同一 IP 在该时间窗口内只能提交 1 次评论；同一邮箱 10 分钟内限制 3 次。',
+            commentMaxLinks: '评论最大链接数',
+            commentMaxLinksHint: '超过该数量的链接会被直接判定为垃圾评论。',
+            commentSpamKeywords: '垃圾关键词',
+            commentSpamKeywordsHint: '使用逗号或换行分隔，命中后会直接标记为垃圾评论。',
+            commentWafTipsTitle: 'Cloudflare WAF 建议：',
+            commentWafTipsBody: '建议在 Cloudflare 控制台为评论提交接口增加 Managed Challenge、Bot Fight Mode 和频率限制规则。',
             siteDescription: '网站描述',
             siteDescriptionHint: '用于 SEO 描述信息。',
             siteKeywords: '网站关键词',
@@ -1377,6 +1394,23 @@ app.get('/wp-admin', (c) => {
             enableMailNotificationsHint: 'Requires the <code>RESEND_API_KEY</code> Worker secret to be configured.',
             notifyAdminOnComment: 'Notify admin when a new comment is submitted',
             notifyCommenterOnReply: 'Notify the original commenter when someone replies',
+            commentProtection: 'Comment Protection',
+            enableCommentTurnstile: 'Enable Turnstile verification',
+            enableCommentTurnstileHint: 'Recommended for guest comments. Requires both Site Key and Secret Key.',
+            commentTurnstileSiteKey: 'Turnstile Site Key',
+            commentTurnstileSiteKeyHint: 'Public site key used by the comment form.',
+            commentTurnstileSecretKey: 'Turnstile Secret Key',
+            commentTurnstileSecretKeyHint: 'Server-side secret used to verify comment submissions.',
+            commentFirstTimeModeration: 'Moderate first-time commenters',
+            commentFirstTimeModerationHint: 'Guests whose email has never had an approved comment will be sent to pending review.',
+            commentRateLimitSeconds: 'Comment rate-limit window (seconds)',
+            commentRateLimitSecondsHint: 'A single IP can submit only once in this window; the same email is limited to 3 submissions within 10 minutes.',
+            commentMaxLinks: 'Maximum links per comment',
+            commentMaxLinksHint: 'Comments with more links than this will be marked as spam.',
+            commentSpamKeywords: 'Spam keywords',
+            commentSpamKeywordsHint: 'Separate with commas or new lines. Matching comments will be marked as spam.',
+            commentWafTipsTitle: 'Cloudflare WAF Tips:',
+            commentWafTipsBody: 'Add Managed Challenge, Bot Fight Mode, and rate-limit rules in the Cloudflare dashboard for your comment endpoints.',
             siteDescription: 'Site Description',
             siteDescriptionHint: 'Used for the SEO meta description.',
             siteKeywords: 'Site Keywords',
@@ -5922,6 +5956,77 @@ https://example.com/image2.jpg"></textarea>
                 </label>
               </div>
 
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #dcdcde;">
+
+              <h3 style="margin-bottom: 20px; color: #1d2327;">\${i18n.t('settings.commentProtection')}</h3>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+                  <input type="checkbox" name="comment_turnstile_enabled" value="1" \${(settings.comment_turnstile_enabled || '0') === '1' ? 'checked' : ''} style="width: auto;">
+                  \${i18n.t('settings.enableCommentTurnstile')}
+                </label>
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.enableCommentTurnstileHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>\${i18n.t('settings.commentTurnstileSiteKey')}</label>
+                <input type="text" name="comment_turnstile_site_key" value="\${settings.comment_turnstile_site_key || ''}" placeholder="0x4AAAAA...">
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.commentTurnstileSiteKeyHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>\${i18n.t('settings.commentTurnstileSecretKey')}</label>
+                <input type="password" name="comment_turnstile_secret_key" value="\${settings.comment_turnstile_secret_key || ''}" placeholder="0x4AAAAA...">
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.commentTurnstileSecretKeyHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 500;">
+                  <input type="checkbox" name="comment_moderation_first_comment" value="1" \${(settings.comment_moderation_first_comment || '1') === '1' ? 'checked' : ''} style="width: auto;">
+                  \${i18n.t('settings.commentFirstTimeModeration')}
+                </label>
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.commentFirstTimeModerationHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>\${i18n.t('settings.commentRateLimitSeconds')}</label>
+                <input type="number" name="comment_rate_limit_seconds" min="1" value="\${settings.comment_rate_limit_seconds || '30'}">
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.commentRateLimitSecondsHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>\${i18n.t('settings.commentMaxLinks')}</label>
+                <input type="number" name="comment_max_links" min="1" value="\${settings.comment_max_links || '2'}">
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.commentMaxLinksHint')}
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>\${i18n.t('settings.commentSpamKeywords')}</label>
+                <textarea name="comment_spam_keywords" style="min-height: 120px;">\${settings.comment_spam_keywords || ''}</textarea>
+                <small style="color: #646970; display: block; margin-top: 5px;">
+                  \${i18n.t('settings.commentSpamKeywordsHint')}
+                </small>
+              </div>
+
+              <div style="background: #fff8e5; border: 1px solid #dba617; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
+                <strong style="color: #8a5d00;">\${i18n.t('settings.commentWafTipsTitle')}</strong>
+                <div style="margin-top: 8px; color: #646970; font-size: 13px; line-height: 1.6;">
+                  \${i18n.t('settings.commentWafTipsBody')}
+                </div>
+              </div>
+
               <div class="form-group">
                 <label>\${i18n.t('settings.siteDescription')}</label>
                 <textarea name="site_description" style="min-height: 100px;">\${settings.site_description || ''}</textarea>
@@ -6103,6 +6208,13 @@ https://example.com/image2.jpg"></textarea>
             mail_notifications_enabled: formData.get('mail_notifications_enabled') ? '1' : '0',
             notify_admin_on_comment: formData.get('notify_admin_on_comment') ? '1' : '0',
             notify_commenter_on_reply: formData.get('notify_commenter_on_reply') ? '1' : '0',
+            comment_turnstile_enabled: formData.get('comment_turnstile_enabled') ? '1' : '0',
+            comment_turnstile_site_key: formData.get('comment_turnstile_site_key'),
+            comment_turnstile_secret_key: formData.get('comment_turnstile_secret_key'),
+            comment_moderation_first_comment: formData.get('comment_moderation_first_comment') ? '1' : '0',
+            comment_rate_limit_seconds: formData.get('comment_rate_limit_seconds'),
+            comment_max_links: formData.get('comment_max_links'),
+            comment_spam_keywords: formData.get('comment_spam_keywords'),
             site_description: formData.get('site_description'),
             site_keywords: formData.get('site_keywords'),
             site_author: formData.get('site_author'),

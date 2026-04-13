@@ -2,6 +2,11 @@ import { Hono } from 'hono';
 import type { AppEnv, Env, JWTPayload } from '../types';
 import { buildPaginationHeaders, createWPError, getSiteSettings, md5 } from '../utils';
 import { authMiddleware, optionalAuthMiddleware } from '../auth';
+import {
+  applyCountDelta,
+  getApprovedStatusDelta,
+  moderateCommentSubmission,
+} from '../comment-security';
 
 const moments = new Hono<AppEnv>();
 
@@ -93,7 +98,7 @@ async function ensureMomentCommentTables(env: Env): Promise<void> {
       author_url TEXT,
       author_ip TEXT,
       content TEXT NOT NULL,
-      status TEXT DEFAULT 'approved' CHECK(status IN ('approved', 'pending', 'spam', 'trash')),
+      status TEXT DEFAULT 'pending' CHECK(status IN ('approved', 'pending', 'spam', 'trash')),
       user_id INTEGER,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (moment_id) REFERENCES moments(id) ON DELETE CASCADE,
@@ -360,7 +365,15 @@ moments.post('/:id/comments', optionalAuthMiddleware, async (c) => {
     }
 
     const body = await c.req.json();
-    let { parent, author_name, author_email, author_url, content } = body;
+    let {
+      parent,
+      author_name,
+      author_email,
+      author_url,
+      content,
+      turnstile_token,
+      website,
+    } = body;
 
     if (!content || !String(content).trim()) {
       return createWPError('rest_missing_callback_param', 'Missing parameter(s): content', 400);
@@ -397,6 +410,13 @@ moments.post('/:id/comments', optionalAuthMiddleware, async (c) => {
       );
     }
 
+    if (!userId) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(String(author_email))) {
+        return createWPError('rest_invalid_param', 'Invalid author_email.', 400);
+      }
+    }
+
     if (parent) {
       const parentComment = await c.env.DB.prepare(`
         SELECT id
@@ -410,12 +430,33 @@ moments.post('/:id/comments', optionalAuthMiddleware, async (c) => {
       }
     }
 
+    const moderation = await moderateCommentSubmission({
+      authorEmail: commentAuthorEmail,
+      authorIp: getClientIp(c),
+      authorUrl: commentAuthorUrl,
+      content: String(content).trim(),
+      env: c.env,
+      honeypot: website,
+      resourceColumn: 'moment_id',
+      resourceId: momentId,
+      settings,
+      table: 'moment_comments',
+      turnstileToken: turnstile_token,
+      userId,
+    });
+
+    if (moderation.errorMessage) {
+      return createWPError('rest_comment_rejected', moderation.errorMessage, moderation.errorStatus || 400);
+    }
+
+    const commentStatus = moderation.status || 'pending';
+
     const result = await c.env.DB.prepare(`
       INSERT INTO moment_comments (
         moment_id, parent_id, author_name, author_email, author_url,
         author_ip, content, status, user_id, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `).bind(
       momentId,
       parent || 0,
@@ -424,14 +465,13 @@ moments.post('/:id/comments', optionalAuthMiddleware, async (c) => {
       commentAuthorUrl || '',
       getClientIp(c),
       String(content).trim(),
+      commentStatus,
       userId,
     ).run();
 
-    await c.env.DB.prepare(`
-      UPDATE moments
-      SET comment_count = comment_count + 1
-      WHERE id = ?
-    `).bind(momentId).run();
+    if (commentStatus === 'approved') {
+      await applyCountDelta(c.env, 'moments', momentId, 1);
+    }
 
     const newComment = await c.env.DB.prepare(`
       SELECT *
@@ -516,16 +556,11 @@ moments.put('/:id/comments/:commentId', authMiddleware, async (c) => {
         AND moment_id = ?
     `).bind(...params).run();
 
-    await c.env.DB.prepare(`
-      UPDATE moments
-      SET comment_count = (
-        SELECT COUNT(*)
-        FROM moment_comments
-        WHERE moment_id = ?
-          AND status = 'approved'
-      )
-      WHERE id = ?
-    `).bind(momentId, momentId).run();
+    const nextStatus = status !== undefined ? status : existingComment.status;
+    const countDelta = getApprovedStatusDelta(existingComment.status, nextStatus);
+    if (countDelta !== 0) {
+      await applyCountDelta(c.env, 'moments', momentId, countDelta);
+    }
 
     const updatedComment = await c.env.DB.prepare(`
       SELECT *
@@ -584,16 +619,7 @@ moments.delete('/:id/comments/:commentId', authMiddleware, async (c) => {
       `).bind(commentId, momentId).run();
     }
 
-    await c.env.DB.prepare(`
-      UPDATE moments
-      SET comment_count = (
-        SELECT COUNT(*)
-        FROM moment_comments
-        WHERE moment_id = ?
-          AND status = 'approved'
-      )
-      WHERE id = ?
-    `).bind(momentId, momentId).run();
+    await applyCountDelta(c.env, 'moments', momentId, existingComment.status === 'approved' ? -1 : 0);
 
     return c.json({
       deleted: !!force,
