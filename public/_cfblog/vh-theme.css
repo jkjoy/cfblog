@@ -2520,6 +2520,43 @@ article.vh-article-main > footer {
 .vh-page .vh-comment-item.child {
   margin-left: 1.5rem;
 }
+.vh-page .comment-author-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.vh-page .comment-author-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.vh-page .comment-author-link {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.vh-page .comment-author-link > strong {
+  font-size: inherit;
+  line-height: inherit;
+}
+.vh-page .comment-author-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(1, 196, 182, 0.12);
+  border: 1px solid rgba(1, 196, 182, 0.24);
+  color: #017f76;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
 .vh-page .vh-comment-item .comment-content {
   padding-top: 0.5rem;
   color: var(--vh-font-66);

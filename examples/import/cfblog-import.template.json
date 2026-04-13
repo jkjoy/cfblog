@@ -1,0 +1,72 @@
+{
+  "format": "cfblog-import",
+  "version": "1.0",
+  "source": {
+    "platform": "wordpress",
+    "site_name": "Example Blog",
+    "site_url": "https://example.com",
+    "exported_at": "2026-04-11T00:00:00.000Z",
+    "generator": "cfblog-wordpress-exporter/1.0.0"
+  },
+  "categories": [
+    {
+      "name": "技术",
+      "slug": "tech",
+      "description": "技术相关文章"
+    },
+    {
+      "name": "随笔",
+      "slug": "notes",
+      "description": "杂谈和记录"
+    }
+  ],
+  "tags": [
+    {
+      "name": "cloudflare",
+      "slug": "cloudflare"
+    },
+    {
+      "name": "wordpress",
+      "slug": "wordpress"
+    }
+  ],
+  "content": [
+    {
+      "type": "post",
+      "title": "Hello CFBlog",
+      "slug": "hello-cfblog",
+      "content": "# Hello CFBlog\n\n这是一篇从其它博客导入的文章。",
+      "excerpt": "这是一篇用于演示导入格式的文章。",
+      "status": "publish",
+      "created_at": "2026-04-10T10:00:00.000Z",
+      "updated_at": "2026-04-10T12:00:00.000Z",
+      "published_at": "2026-04-10T10:00:00.000Z",
+      "comment_status": "open",
+      "sticky": false,
+      "featured_image_url": "https://example.com/uploads/hello-cover.jpg",
+      "categories": ["tech"],
+      "tags": ["cloudflare", "wordpress"],
+      "source": {
+        "id": "123",
+        "url": "https://example.com/hello-cfblog"
+      },
+      "author": {
+        "username": "admin",
+        "display_name": "Site Admin",
+        "email": "admin@example.com"
+      }
+    },
+    {
+      "type": "page",
+      "title": "关于",
+      "slug": "about",
+      "content": "这里是站点介绍页面。",
+      "excerpt": "站点介绍",
+      "status": "publish",
+      "created_at": "2026-04-01T08:00:00.000Z",
+      "updated_at": "2026-04-01T08:00:00.000Z",
+      "published_at": "2026-04-01T08:00:00.000Z",
+      "comment_status": "closed"
+    }
+  ]
+}

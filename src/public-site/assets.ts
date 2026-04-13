@@ -341,7 +341,19 @@ body.vh-lightbox-open {
 .vh-lightbox-close:hover,
 .vh-lightbox-nav:hover {
   background: rgba(15, 23, 33, 0.72);
+}
+
+.vh-lightbox-close:hover {
   transform: translateY(-1px);
+}
+
+.vh-lightbox-nav {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.vh-lightbox-nav:hover {
+  transform: translateY(calc(-50% - 1px));
 }
 
 .vh-lightbox-close:focus-visible,
@@ -367,7 +379,7 @@ body.vh-lightbox-open {
   opacity: 0;
   cursor: default;
   pointer-events: none;
-  transform: none;
+  transform: translateY(-50%);
 }
 
 .vh-tools-main > main.main.talking-main > article > footer {
@@ -464,6 +476,53 @@ body.vh-lightbox-open {
   min-width: 0;
 }
 
+.vh-page .comment-author-meta,
+.vh-tools-main .comment-author-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.vh-page .comment-author-name-row,
+.vh-tools-main .comment-author-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.vh-page .comment-author-link,
+.vh-tools-main .comment-author-link {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.vh-page .comment-author-link > strong,
+.vh-tools-main .comment-author-link > strong {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.vh-page .comment-author-badge,
+.vh-tools-main .comment-author-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(1, 196, 182, 0.12);
+  border: 1px solid rgba(1, 196, 182, 0.24);
+  color: #017f76;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .vh-page .comment-author > img,
 .vh-tools-main .comment-author > img {
   flex-shrink: 0;
@@ -477,8 +536,10 @@ body.vh-lightbox-open {
 
 .vh-page .comment-author > strong,
 .vh-page .comment-author > a,
+.vh-page .comment-author-link,
 .vh-tools-main .comment-author > strong,
-.vh-tools-main .comment-author > a {
+.vh-tools-main .comment-author > a,
+.vh-tools-main .comment-author-link {
   font-size: 0.98rem;
   line-height: 1.2;
 }

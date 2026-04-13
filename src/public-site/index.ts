@@ -15,6 +15,8 @@ type AppContext = Context<AppEnv>;
 type AppRouter = Hono<AppEnv>;
 
 interface SiteMeta {
+  adminAvatarUrl: string;
+  adminEmail: string;
   authorName: string;
   baseUrl: string;
   description: string;
@@ -87,6 +89,7 @@ interface PostDetail extends PostCard {
 
 interface CommentNode {
   avatarUrl: string;
+  isAdminAuthor: boolean;
   authorName: string;
   authorUrl: string;
   children: CommentNode[];
@@ -98,6 +101,7 @@ interface CommentNode {
 
 interface MomentCommentNode {
   avatarUrl: string;
+  isAdminAuthor: boolean;
   authorName: string;
   authorUrl: string;
   children: MomentCommentNode[];
@@ -188,6 +192,17 @@ interface RawMomentRow {
   media_urls: string | null;
   updated_at: string;
   view_count: number | null;
+}
+
+interface RawCommentRow {
+  author_email: string | null;
+  author_name: string | null;
+  author_url: string | null;
+  content: string;
+  created_at: string;
+  id: number;
+  parent_id: number | null;
+  user_avatar_url: string | null;
 }
 
 interface RawMomentCommentRow {
@@ -543,7 +558,7 @@ async function renderContentBySlug(c: AppContext): Promise<Response> {
   }
 
   const [comments, related] = await Promise.all([
-    getCommentsForPost(c.env, detail.id),
+    getCommentsForPost(c.env, detail.id, common.site.adminEmail),
     getRelatedPosts(c.env, common.site, detail.id, detail.categories.map((item) => item.id)),
   ]);
 
@@ -725,6 +740,10 @@ async function getSiteMeta(env: Env, requestUrl: string): Promise<SiteMeta> {
     String(rawSettings.site_description || '').trim() ||
     '基于 Cloudflare Workers 的前后端一体化博客系统。';
   const authorName = String(rawSettings.site_author || '').trim() || title;
+  const adminEmail = normalizeEmail(rawSettings.admin_email);
+  const adminAvatarUrl = adminEmail
+    ? `https://cn.cravatar.com/avatar/${await md5(adminEmail)}?s=96&d=mp&r=g`
+    : '';
   const faviconUrl = normalizeOptionalUrl(rawSettings.site_favicon);
   const logoUrl =
     normalizeOptionalUrl(rawSettings.site_logo) ||
@@ -734,6 +753,8 @@ async function getSiteMeta(env: Env, requestUrl: string): Promise<SiteMeta> {
   const noticeHtml = renderNoticeHtml(String(rawSettings.site_notice || '').trim());
 
   return {
+    adminAvatarUrl,
+    adminEmail,
     authorName,
     baseUrl,
     description,
@@ -1011,7 +1032,11 @@ async function getContentDetailBySlug(
   };
 }
 
-async function getCommentsForPost(env: Env, postId: number): Promise<CommentNode[]> {
+async function getCommentsForPost(
+  env: Env,
+  postId: number,
+  adminEmail: string,
+): Promise<CommentNode[]> {
   const result = await env.DB.prepare(`
     SELECT c.id, c.author_name, c.author_email, c.author_url, c.content, c.created_at, c.parent_id,
            u.avatar_url AS user_avatar_url
@@ -1020,7 +1045,7 @@ async function getCommentsForPost(env: Env, postId: number): Promise<CommentNode
     WHERE c.post_id = ?
       AND c.status = 'approved'
     ORDER BY created_at ASC
-  `).bind(postId).all<any>();
+  `).bind(postId).all<RawCommentRow>();
 
   const rawRows = result.results || [];
   const nodes = new Map<number, CommentNode>();
@@ -1042,6 +1067,7 @@ async function getCommentsForPost(env: Env, postId: number): Promise<CommentNode
   for (const row of rows) {
     const node: CommentNode = {
       avatarUrl: String(row.avatar_url || ''),
+      isAdminAuthor: !!adminEmail && normalizeEmail(row.author_email) === adminEmail,
       authorName: String(row.author_name || '匿名访客'),
       authorUrl: String(row.author_url || ''),
       children: [],
@@ -1172,11 +1198,11 @@ async function getMoments(
   `).bind(perPage, offset).all<RawMomentRow>();
 
   const rows = result.results || [];
-  const commentMap = await getMomentCommentMap(env, rows.map((row) => Number(row.id)));
+  const commentMap = await getMomentCommentMap(env, rows.map((row) => Number(row.id)), site.adminEmail);
 
   return {
     items: rows.map((row) => ({
-      author: mapAuthor(row, site.authorName),
+      author: mapAuthor(row, site.authorName, site.adminAvatarUrl),
       commentCount: Number(row.comment_count || 0),
       comments: commentMap.get(Number(row.id)) || [],
       contentHtml: renderCommentContent(String(row.content || '')),
@@ -1199,6 +1225,7 @@ async function getMoments(
 async function getMomentCommentMap(
   env: Env,
   momentIds: number[],
+  adminEmail: string,
 ): Promise<Map<number, MomentCommentNode[]>> {
   const map = new Map<number, MomentCommentNode[]>();
   if (!momentIds.length) {
@@ -1223,6 +1250,7 @@ async function getMomentCommentMap(
         avatarUrl: emailHash
           ? `https://cn.cravatar.com/avatar/${emailHash}?s=96&d=mp&r=g`
           : createMonogramDataUri(String(row.author_name || '匿名')),
+        isAdminAuthor: !!adminEmail && normalizeEmail(row.author_email) === adminEmail,
         authorName: String(row.author_name || '匿名访客'),
         authorUrl: String(row.author_url || ''),
         children: [],
@@ -1448,11 +1476,12 @@ function renderHero(input: {
   title: string;
 }): string {
   const messages = [...new Set([input.common.site.description, input.description].filter(Boolean))];
+  const headerAvatarUrl = input.common.site.logoUrl;
   return `
     <div class="header-main">
       <div class="avatar">
         <img src="/assets/images/lazy-loading.webp" data-vh-lz-src="${escapeAttribute(
-          input.common.site.logoUrl,
+          headerAvatarUrl,
         )}" alt="${escapeAttribute(input.common.site.authorName)}" />
       </div>
       <h3 class="auther">${escapeHtml(input.common.site.authorName)}</h3>
@@ -1464,11 +1493,12 @@ function renderHero(input: {
 }
 
 function renderAside(common: CommonSiteData): string {
+  const asideAvatarUrl = common.site.adminAvatarUrl || common.site.logoUrl;
   return `
     <aside class="vh-aside">
       <section class="vh-aside-item user">
         <img class="vh-aside-avatar" src="/assets/images/lazy-loading.webp" data-vh-lz-src="${escapeAttribute(
-          common.site.logoUrl,
+          asideAvatarUrl,
         )}" alt="${escapeAttribute(common.site.authorName)}" />
         <span class="vh-aside-auther">${escapeHtml(common.site.authorName)}</span>
         <p class="vh-aside-motto">${escapeHtml(common.site.description)}</p>
@@ -1808,16 +1838,21 @@ function renderCommentTree(
   nested = false,
   formId = 'post-comment-form',
 ): string {
+  const authorNameMarkup = node.authorUrl
+    ? `<a class="comment-author-link" href="${escapeAttribute(node.authorUrl)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(node.authorName)}</strong></a>`
+    : `<strong class="comment-author-link">${escapeHtml(node.authorName)}</strong>`;
+
   return `
     <article class="vh-comment-item ${nested ? 'child' : ''}">
       <div class="comment-head">
         <div class="comment-author">
           <img src="${escapeAttribute(node.avatarUrl)}" alt="${escapeAttribute(node.authorName)}">
-          ${
-            node.authorUrl
-              ? `<a href="${escapeAttribute(node.authorUrl)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(node.authorName)}</strong></a>`
-              : `<strong>${escapeHtml(node.authorName)}</strong>`
-          }
+          <div class="comment-author-meta">
+            <div class="comment-author-name-row">
+              ${authorNameMarkup}
+              ${node.isAdminAuthor ? '<span class="comment-author-badge">博主</span>' : ''}
+            </div>
+          </div>
         </div>
         <time datetime="${escapeAttribute(node.createdAt)}">${escapeHtml(node.dateLabel)}</time>
       </div>
@@ -1850,16 +1885,21 @@ function renderMomentCommentTree(
   nested = false,
   formId = 'moment-comment-form',
 ): string {
+  const authorNameMarkup = node.authorUrl
+    ? `<a class="comment-author-link" href="${escapeAttribute(node.authorUrl)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(node.authorName)}</strong></a>`
+    : `<strong class="comment-author-link">${escapeHtml(node.authorName)}</strong>`;
+
   return `
     <article class="vh-comment-item ${nested ? 'child' : ''}" id="moment-comment-${node.id}">
       <div class="comment-head">
         <div class="comment-author">
           <img src="${escapeAttribute(node.avatarUrl)}" alt="${escapeAttribute(node.authorName)}">
-          ${
-            node.authorUrl
-              ? `<a href="${escapeAttribute(node.authorUrl)}" target="_blank" rel="noopener noreferrer"><strong>${escapeHtml(node.authorName)}</strong></a>`
-              : `<strong>${escapeHtml(node.authorName)}</strong>`
-          }
+          <div class="comment-author-meta">
+            <div class="comment-author-name-row">
+              ${authorNameMarkup}
+              ${node.isAdminAuthor ? '<span class="comment-author-badge">博主</span>' : ''}
+            </div>
+          </div>
         </div>
         <time datetime="${escapeAttribute(node.createdAt)}">${escapeHtml(node.dateLabel)}</time>
       </div>
@@ -2299,11 +2339,14 @@ function mapAuthor(row: {
   author_bio: string | null;
   author_display_name: string | null;
   author_username: string | null;
-}, fallbackName: string): AuthorInfo {
+}, fallbackName: string, fallbackAvatarUrl = ''): AuthorInfo {
   const username = String(row.author_username || fallbackName);
   const name = String(row.author_display_name || row.author_username || fallbackName);
   return {
-    avatarUrl: normalizeOptionalUrl(row.author_avatar_url) || createMonogramDataUri(name),
+    avatarUrl:
+      normalizeOptionalUrl(row.author_avatar_url) ||
+      normalizeOptionalUrl(fallbackAvatarUrl) ||
+      createMonogramDataUri(name),
     bio: String(row.author_bio || ''),
     name,
     username,
@@ -2659,6 +2702,10 @@ function sanitizeToken(value: string): string {
     .replace(/[^a-zA-Z0-9_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return normalized || 'default';
+}
+
+function normalizeEmail(value: string | null | undefined): string {
+  return String(value || '').trim().toLowerCase();
 }
 
 function buildAbsoluteUrl(baseUrl: string, path: string): string {
