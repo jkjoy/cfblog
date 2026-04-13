@@ -5379,6 +5379,139 @@ https://example.com/image2.jpg"></textarea>
       const jsonInput = document.getElementById('import-json-input');
       const templateButton = document.getElementById('load-import-template-button');
       const importForm = document.getElementById('import-form');
+      const IMPORT_BATCH_SIZE = 20;
+
+      function toImportArray(value) {
+        return Array.isArray(value) ? value : [];
+      }
+
+      function createImportBatches(importPackage) {
+        const batches = [];
+        const basePackage = {
+          format: importPackage.format || 'cfblog-import',
+          version: importPackage.version || '1.1',
+          source: importPackage.source || null
+        };
+        const categories = toImportArray(importPackage.categories);
+        const tags = toImportArray(importPackage.tags);
+        const contentItems = toImportArray(importPackage.content);
+        const momentItems = toImportArray(importPackage.moments);
+
+        for (let start = 0; start < contentItems.length; start += IMPORT_BATCH_SIZE) {
+          batches.push({
+            ...basePackage,
+            categories: batches.length === 0 ? categories : [],
+            tags: batches.length === 0 ? tags : [],
+            content: contentItems.slice(start, start + IMPORT_BATCH_SIZE),
+            moments: []
+          });
+        }
+
+        for (let start = 0; start < momentItems.length; start += IMPORT_BATCH_SIZE) {
+          batches.push({
+            ...basePackage,
+            categories: [],
+            tags: [],
+            content: [],
+            moments: momentItems.slice(start, start + IMPORT_BATCH_SIZE)
+          });
+        }
+
+        return batches;
+      }
+
+      function createAggregateImportResult(importPackage, dryRun, conflictStrategy) {
+        const contentItems = toImportArray(importPackage.content);
+        const momentItems = toImportArray(importPackage.moments);
+        const postsDetected = contentItems.filter(item => (item.type || 'post') === 'post').length;
+
+        return {
+          success: true,
+          dry_run: dryRun,
+          format: importPackage.format || 'cfblog-import',
+          version: importPackage.version || '1.1',
+          strategy: conflictStrategy,
+          source: importPackage.source || null,
+          summary: {
+            total_content_items: contentItems.length,
+            total_moment_items: momentItems.length,
+            posts_detected: postsDetected,
+            pages_detected: contentItems.length - postsDetected,
+            moments_detected: momentItems.length,
+            created: 0,
+            updated: 0,
+            skipped: 0,
+            failed: 0,
+            categories_created: 0,
+            categories_matched: 0,
+            tags_created: 0,
+            tags_matched: 0
+          },
+          issues: []
+        };
+      }
+
+      function mergeImportResult(target, source) {
+        const summaryFields = [
+          'created',
+          'updated',
+          'skipped',
+          'failed',
+          'categories_created',
+          'categories_matched',
+          'tags_created',
+          'tags_matched'
+        ];
+
+        target.success = target.success && source.success !== false;
+
+        for (const field of summaryFields) {
+          target.summary[field] = (target.summary[field] || 0) + (source.summary?.[field] || 0);
+        }
+
+        if (Array.isArray(source.issues) && source.issues.length > 0) {
+          target.issues.push(...source.issues);
+        }
+      }
+
+      async function sendImportRequest(importPackage, dryRun, conflictStrategy) {
+        const response = await fetch(API_BASE + '/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify({
+            package: importPackage,
+            options: {
+              dry_run: dryRun,
+              conflict_strategy: conflictStrategy
+            }
+          })
+        });
+
+        const responseText = await response.text();
+        let result = {};
+
+        try {
+          result = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          result = {
+            message: responseText || ('HTTP ' + response.status)
+          };
+        }
+
+        return { response, result };
+      }
+
+      function renderImportProgress(current, total) {
+        const panel = document.getElementById('import-result-panel');
+        if (!panel) {
+          return;
+        }
+
+        panel.innerHTML = '<div style="padding: 14px; border: 1px solid #dcdcde; border-radius: 4px; background: #f6f7f7;">正在导入第 ' + current + ' / ' + total + ' 批，请稍候...</div>';
+      }
 
       fileInput.addEventListener('change', async (event) => {
         const file = event.target.files && event.target.files[0];
@@ -5432,46 +5565,35 @@ https://example.com/image2.jpg"></textarea>
         const conflictStrategy = document.getElementById('import-conflict-strategy').value;
 
         try {
-          const response = await fetch(API_BASE + '/import', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + authToken
-            },
-            body: JSON.stringify({
-              package: parsedPackage,
-              options: {
-                dry_run: dryRun,
-                conflict_strategy: conflictStrategy
-              }
-            })
-          });
-
-          const responseText = await response.text();
-          let result = {};
-
-          try {
-            result = responseText ? JSON.parse(responseText) : {};
-          } catch {
-            result = {
-              message: responseText || ('HTTP ' + response.status)
-            };
+          const batches = createImportBatches(parsedPackage);
+          if (batches.length === 0) {
+            throw new Error('Import package must include content or moments.');
           }
 
-          if (!response.ok) {
-            renderImportResult({
-              success: false,
-              dry_run: dryRun,
-              source: null,
-              summary: {},
-              issues: [{ level: 'error', scope: 'package', identifier: 'request', message: result.message || 'Import failed.' }]
-            });
-            showError(i18n.t('import.importFailed') + (result.message || ''));
-            return;
+          const aggregateResult = createAggregateImportResult(parsedPackage, dryRun, conflictStrategy);
+
+          for (let index = 0; index < batches.length; index++) {
+            renderImportProgress(index + 1, batches.length);
+            const { response, result } = await sendImportRequest(batches[index], dryRun, conflictStrategy);
+
+            if (!response.ok) {
+              aggregateResult.success = false;
+              aggregateResult.issues.push({
+                level: 'error',
+                scope: 'package',
+                identifier: 'batch-' + (index + 1),
+                message: 'Batch ' + (index + 1) + '/' + batches.length + ': ' + (result.message || 'Import failed.')
+              });
+              renderImportResult(aggregateResult);
+              showError(i18n.t('import.importFailed') + (result.message || ''));
+              return;
+            }
+
+            mergeImportResult(aggregateResult, result);
           }
 
-          renderImportResult(result);
-          showSuccess(dryRun ? i18n.t('import.dryRunBadge') : i18n.t('import.completed'));
+          renderImportResult(aggregateResult);
+          showSuccess((dryRun ? i18n.t('import.dryRunBadge') : i18n.t('import.completed')) + ' (' + batches.length + ' batches)');
         } catch (error) {
           console.error('执行导入失败:', error);
           renderImportResult({
