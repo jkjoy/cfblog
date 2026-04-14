@@ -797,18 +797,30 @@ app.get('/wp-admin', (c) => {
       z-index: 1000;
     }
     .modal-content {
+      --modal-padding: 30px;
+      --modal-padding-negative: -30px;
       background: #fff;
-      padding: 30px;
+      padding: var(--modal-padding);
       border-radius: 4px;
       max-width: 600px;
       width: 90%;
       max-height: 90vh;
       overflow-y: auto;
+      position: relative;
     }
     .modal-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      position: sticky;
+      top: var(--modal-padding-negative);
+      margin: var(--modal-padding-negative) var(--modal-padding-negative) 20px;
+      padding: 20px var(--modal-padding);
+      background: #fff;
+      border-bottom: 1px solid #dcdcde;
+      z-index: 10;
+      box-shadow: 0 1px 0 rgba(220, 220, 222, 0.9);
+      gap: 16px;
       margin-bottom: 20px;
     }
     .modal-header h2 {
@@ -821,6 +833,12 @@ app.get('/wp-admin', (c) => {
       font-size: 24px;
       cursor: pointer;
       color: #646970;
+      line-height: 1;
+      flex-shrink: 0;
+      padding: 4px;
+    }
+    .close-button:hover {
+      color: #1d2327;
     }
     textarea {
       width: 100%;
@@ -1042,11 +1060,13 @@ app.get('/wp-admin', (c) => {
         min-width: 600px;
       }
       .modal-content {
+        --modal-padding: 20px;
+        --modal-padding-negative: -20px;
         width: 95%;
         max-width: none;
         max-height: 95vh;
         margin: 10px;
-        padding: 20px;
+        padding: var(--modal-padding);
       }
       .stats-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1952,6 +1972,43 @@ app.get('/wp-admin', (c) => {
         const bTime = new Date(b.modified || b.date || 0).getTime();
         return bTime - aTime;
       });
+    }
+
+    async function fetchAllMoments(status = 'all') {
+      const perPage = 100;
+      const headers = { 'Authorization': 'Bearer ' + authToken };
+      const fetchPage = async (page) => {
+        const response = await fetch(API_BASE + '/moments?status=' + encodeURIComponent(status) + '&per_page=' + perPage + '&page=' + page, {
+          headers
+        });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.message || '加载动态失败');
+        }
+
+        const moments = await response.json();
+        const totalPages = parseInt(response.headers.get('X-WP-TotalPages') || '1', 10);
+
+        return {
+          moments: Array.isArray(moments) ? moments : [],
+          totalPages
+        };
+      };
+
+      const firstPage = await fetchPage(1);
+      if (firstPage.totalPages <= 1) {
+        return firstPage.moments;
+      }
+
+      const remainingPages = await Promise.all(
+        Array.from({ length: firstPage.totalPages - 1 }, (_, index) => fetchPage(index + 2))
+      );
+
+      return [
+        ...firstPage.moments,
+        ...remainingPages.flatMap((pageResult) => pageResult.moments)
+      ];
     }
 
     async function showPosts() {
@@ -4866,21 +4923,8 @@ app.get('/wp-admin', (c) => {
 
     async function loadMomentsList() {
       try {
-        const response = await fetch(API_BASE + '/moments?per_page=50&status=all', {
-          headers: { 'Authorization': 'Bearer ' + authToken }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API Error:', response.status, errorText);
-          const container = document.getElementById('moments-list');
-          container.innerHTML = '<div class="error-message">加载失败 moments. Please check if the moments table exists in the database.</div>';
-          return;
-        }
-
-        const moments = await response.json();
-
         const container = document.getElementById('moments-list');
+        const moments = await fetchAllMoments('all');
         if (!moments || !Array.isArray(moments) || moments.length === 0) {
           container.innerHTML = \`<div class="empty-state">\${i18n.t('moments.noMoments')}</div>\`;
           return;
@@ -4925,6 +4969,10 @@ app.get('/wp-admin', (c) => {
         \`;
       } catch (error) {
         console.error('加载失败 moments:', error);
+        const container = document.getElementById('moments-list');
+        if (container) {
+          container.innerHTML = '<div class="error-message">加载失败 moments. Please check if the moments table exists in the database.</div>';
+        }
       }
     }
 
