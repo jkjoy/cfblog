@@ -268,6 +268,7 @@ export function registerPublicSiteRoutes(app: AppRouter): void {
   });
 
   app.get('/rss.xml', renderRssFeed);
+  app.get('/rss.xsl', renderRssStylesheet);
   app.get('/archives', renderArchivePage);
   app.get('/archive', renderArchivePage);
   app.get('/categories/:slug', renderCategoryPage);
@@ -332,6 +333,13 @@ async function renderRssFeed(c: AppContext): Promise<Response> {
   return c.body(renderRssXml(site, items), 200, {
     'Cache-Control': 'public, max-age=900',
     'Content-Type': 'application/rss+xml; charset=utf-8',
+  });
+}
+
+async function renderRssStylesheet(c: AppContext): Promise<Response> {
+  return c.body(renderRssXsl(), 200, {
+    'Cache-Control': 'public, max-age=3600',
+    'Content-Type': 'text/xsl; charset=utf-8',
   });
 }
 
@@ -1735,13 +1743,24 @@ function renderFooter(common: CommonSiteData): string {
             aria-label="GitHub stars for jkjoy/CFBLOG"
           >
             <img
-              src="https://img.shields.io/github/stars/jkjoy/CFBLOG"
+              src="https://img.shields.io/github/stars/jkjoy/CFBLOG?style=flat-square"
               alt="GitHub stars for jkjoy/CFBLOG"
               decoding="async"
             >
           </a>
+          <a
+            href="/rss.xml"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="订阅 RSS"
+          >
+            <img
+              src="https://img.shields.io/badge/RSS-Subscribe-FF6B35?style=flat-square&logo=rss&logoColor=white"
+              alt="RSS Subscribe"
+              decoding="async"
+            >
+          </a>
         </p>
-        <p><a href="/rss.xml" target="_blank" rel="noopener noreferrer">RSS 订阅</a></p>
       </section>
     </footer>
   `;
@@ -2906,6 +2925,7 @@ function buildAbsoluteUrl(baseUrl: string, path: string): string {
 
 function renderRssXml(site: SiteMeta, items: RssFeedItem[]): string {
   const feedUrl = buildAbsoluteUrl(site.baseUrl, '/rss.xml');
+  const stylesheetUrl = buildAbsoluteUrl(site.baseUrl, '/rss.xsl');
   const channelImageUrl = site.logoUrl
     ? buildAbsoluteUrl(site.baseUrl, site.logoUrl)
     : site.faviconUrl
@@ -2914,6 +2934,7 @@ function renderRssXml(site: SiteMeta, items: RssFeedItem[]): string {
   const lastBuildDate = formatRssDate(items[0]?.updatedAt || items[0]?.publishedAt);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="${escapeAttribute(stylesheetUrl)}"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>${escapeHtml(site.title)}</title>
@@ -2956,6 +2977,235 @@ function renderRssXml(site: SiteMeta, items: RssFeedItem[]): string {
       .join('\n')}
   </channel>
 </rss>`;
+}
+
+function renderRssXsl(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+  xmlns:atom="http://www.w3.org/2005/Atom"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <xsl:output method="html" version="1.0" encoding="UTF-8" indent="yes"/>
+
+  <xsl:template match="/">
+    <html lang="zh-CN">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title><xsl:value-of select="/rss/channel/title" /> RSS Feed</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            font-family: "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
+            color: #20343a;
+            background:
+              radial-gradient(circle at top left, rgba(1, 196, 182, 0.18), transparent 28%),
+              radial-gradient(circle at top right, rgba(240, 163, 77, 0.18), transparent 24%),
+              linear-gradient(180deg, #f4fbfa 0%, #fffaf3 100%);
+          }
+          .shell {
+            width: min(1080px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 40px 0 56px;
+          }
+          .hero {
+            padding: 28px;
+            border: 1px solid rgba(32, 52, 58, 0.08);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.86);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 20px 60px rgba(31, 71, 68, 0.08);
+          }
+          .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(255, 107, 53, 0.12);
+            color: #d55423;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+          h1 {
+            margin: 18px 0 12px;
+            font-size: clamp(32px, 5vw, 52px);
+            line-height: 1.04;
+            letter-spacing: -0.03em;
+          }
+          .hero p {
+            margin: 0;
+            max-width: 760px;
+            font-size: 16px;
+            line-height: 1.75;
+            color: #4f666c;
+          }
+          .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 20px;
+          }
+          .meta a, .meta span {
+            display: inline-flex;
+            align-items: center;
+            min-height: 36px;
+            padding: 0 14px;
+            border-radius: 999px;
+            background: #ffffff;
+            border: 1px solid rgba(32, 52, 58, 0.08);
+            color: #20343a;
+            text-decoration: none;
+            font-size: 13px;
+            box-shadow: 0 8px 24px rgba(31, 71, 68, 0.06);
+          }
+          .tip {
+            margin: 20px 0 0;
+            padding: 14px 16px;
+            border-left: 4px solid #01c4b6;
+            border-radius: 14px;
+            background: rgba(1, 196, 182, 0.08);
+            color: #31535a;
+            line-height: 1.7;
+          }
+          .list {
+            display: grid;
+            gap: 18px;
+            margin-top: 26px;
+          }
+          .item {
+            padding: 24px;
+            border: 1px solid rgba(32, 52, 58, 0.08);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.88);
+            box-shadow: 0 16px 48px rgba(31, 71, 68, 0.06);
+          }
+          .item h2 {
+            margin: 0 0 12px;
+            font-size: 24px;
+            line-height: 1.28;
+          }
+          .item h2 a {
+            color: #10292d;
+            text-decoration: none;
+          }
+          .item h2 a:hover {
+            color: #01a79b;
+          }
+          .item-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+            color: #60757a;
+            font-size: 13px;
+          }
+          .item-meta span {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(244, 247, 248, 0.95);
+          }
+          .excerpt {
+            margin: 0;
+            color: #445d63;
+            line-height: 1.8;
+          }
+          .content {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed rgba(32, 52, 58, 0.14);
+            color: #31464b;
+            line-height: 1.82;
+          }
+          .content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 14px;
+          }
+          .content pre {
+            overflow: auto;
+            padding: 14px;
+            border-radius: 14px;
+            background: #132126;
+            color: #eff7f8;
+          }
+          .footer {
+            margin-top: 24px;
+            color: #6a7d81;
+            font-size: 13px;
+            text-align: center;
+          }
+          @media (max-width: 640px) {
+            .shell { width: min(100% - 20px, 1080px); padding-top: 20px; }
+            .hero, .item { padding: 18px; border-radius: 18px; }
+            h1 { font-size: 28px; }
+            .item h2 { font-size: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="shell">
+          <section class="hero">
+            <span class="eyebrow">RSS Feed</span>
+            <h1><xsl:value-of select="/rss/channel/title" /></h1>
+            <p><xsl:value-of select="/rss/channel/description" /></p>
+            <div class="meta">
+              <a>
+                <xsl:attribute name="href"><xsl:value-of select="/rss/channel/link" /></xsl:attribute>
+                访问网站
+              </a>
+              <a>
+                <xsl:attribute name="href"><xsl:value-of select="/rss/channel/atom:link/@href" /></xsl:attribute>
+                订阅地址
+              </a>
+              <span>共 <xsl:value-of select="count(/rss/channel/item)" /> 篇文章</span>
+              <span>最近构建: <xsl:value-of select="/rss/channel/lastBuildDate" /></span>
+            </div>
+            <div class="tip">
+              这是一个可订阅的 RSS 源。阅读器可直接使用当前地址订阅；在浏览器中打开时，会显示这份便于阅读的预览页。
+            </div>
+          </section>
+
+          <section class="list">
+            <xsl:for-each select="/rss/channel/item">
+              <article class="item">
+                <h2>
+                  <a>
+                    <xsl:attribute name="href"><xsl:value-of select="link" /></xsl:attribute>
+                    <xsl:value-of select="title" />
+                  </a>
+                </h2>
+                <div class="item-meta">
+                  <span><xsl:value-of select="pubDate" /></span>
+                  <xsl:if test="dc:creator">
+                    <span>作者: <xsl:value-of select="dc:creator" /></span>
+                  </xsl:if>
+                  <xsl:for-each select="category[position() &lt;= 3]">
+                    <span>#<xsl:value-of select="." /></span>
+                  </xsl:for-each>
+                </div>
+                <p class="excerpt"><xsl:value-of select="description" /></p>
+                <xsl:if test="content:encoded">
+                  <div class="content">
+                    <xsl:value-of select="content:encoded" disable-output-escaping="yes" />
+                  </div>
+                </xsl:if>
+              </article>
+            </xsl:for-each>
+          </section>
+
+          <p class="footer">Rendered from RSS with XSLT. Feed readers will continue to consume the raw XML.</p>
+        </div>
+      </body>
+    </html>
+  </xsl:template>
+</xsl:stylesheet>`;
 }
 
 function buildCanonicalPath(path: string, page: number, query?: Record<string, string>): string {

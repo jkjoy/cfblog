@@ -744,6 +744,8 @@ body.vh-lightbox-open {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   line-height: 0;
 }
 
