@@ -26,6 +26,7 @@ interface SiteMeta {
   faviconUrl: string;
   footerHtml: string;
   headHtml: string;
+  homePostsPerPage: number;
   icp: string;
   keywords: string;
   logoUrl: string;
@@ -275,7 +276,7 @@ export async function renderPublicHome(c: AppContext): Promise<Response> {
   const common = await getCommonSiteData(c.env, c.req.url);
   const listData = await getPostList(c.env, common.site, {
     page,
-    perPage: 15,
+    perPage: common.site.homePostsPerPage,
     search: keyword || undefined,
   });
 
@@ -319,7 +320,7 @@ async function renderArchivePage(c: AppContext): Promise<Response> {
   if (keyword) {
     const listData = await getPostList(c.env, common.site, {
       page,
-      perPage: 15,
+      perPage: common.site.homePostsPerPage,
       search: keyword || undefined,
     });
 
@@ -775,6 +776,7 @@ async function getSiteMeta(env: Env, requestUrl: string): Promise<SiteMeta> {
   const socialLinks = buildSocialLinks(rawSettings);
   const noticeHtml = renderNoticeHtml(String(rawSettings.site_notice || '').trim());
   const commentProtection = getPublicCommentProtectionSettings(rawSettings);
+  const homePostsPerPage = parsePositiveIntSetting(rawSettings.home_posts_per_page, 15);
 
   return {
     adminAvatarUrl,
@@ -789,6 +791,7 @@ async function getSiteMeta(env: Env, requestUrl: string): Promise<SiteMeta> {
       String(rawSettings.site_footer_text || '').trim() ||
       '© CFBlog. Powered by Cloudflare Workers.',
     headHtml: String(rawSettings.head_html || ''),
+    homePostsPerPage,
     icp: String(rawSettings.site_icp || '').trim(),
     keywords: String(rawSettings.site_keywords || '').trim(),
     logoUrl,
@@ -2545,6 +2548,15 @@ function parseMediaUrls(mediaUrls: string | null): string[] {
 function getPageNumber(value: string | undefined): number {
   const page = Number.parseInt(value || '1', 10);
   return Number.isFinite(page) && page > 0 ? page : 1;
+}
+
+function parsePositiveIntSetting(value: unknown, fallback: number, max = 100): number {
+  const parsed = Number.parseInt(String(value ?? '').trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return Math.min(parsed, max);
 }
 
 function normalizeQuery(value: string | undefined): string {

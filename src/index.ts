@@ -1294,6 +1294,8 @@ app.get('/wp-admin', (c) => {
             commentWafTipsBody: '建议在 Cloudflare 控制台为评论提交接口增加 Managed Challenge、Bot Fight Mode 和频率限制规则。',
             siteDescription: '网站描述',
             siteDescriptionHint: '用于 SEO 描述信息。',
+            homePostsPerPage: '首页文章列表数量',
+            homePostsPerPageHint: '控制首页和搜索结果页每页显示的文章数，建议 1-100。',
             siteKeywords: '网站关键词',
             siteKeywordsHint: '使用逗号分隔多个关键词，用于 SEO。',
             siteAuthor: '网站作者',
@@ -1433,6 +1435,8 @@ app.get('/wp-admin', (c) => {
             commentWafTipsBody: 'Add Managed Challenge, Bot Fight Mode, and rate-limit rules in the Cloudflare dashboard for your comment endpoints.',
             siteDescription: 'Site Description',
             siteDescriptionHint: 'Used for the SEO meta description.',
+            homePostsPerPage: 'Homepage post count',
+            homePostsPerPageHint: 'Controls how many posts appear per page on the homepage and search results. Recommended: 1-100.',
             siteKeywords: 'Site Keywords',
             siteKeywordsHint: 'Comma-separated keywords for SEO.',
             siteAuthor: 'Site Author',
@@ -5967,6 +5971,12 @@ https://example.com/image2.jpg"></textarea>
               </div>
 
               <div class="form-group">
+                <label>\${i18n.t('settings.homePostsPerPage')}</label>
+                <input type="number" name="home_posts_per_page" min="1" max="100" value="\${settings.home_posts_per_page || '15'}">
+                <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.homePostsPerPageHint')}</small>
+              </div>
+
+              <div class="form-group">
                 <label>\${i18n.t('settings.siteKeywords')}</label>
                 <input type="text" name="site_keywords" value="\${settings.site_keywords || ''}" placeholder="blog, tech, programming">
                 <small style="color: #646970; display: block; margin-top: 5px;">\${i18n.t('settings.siteKeywordsHint')}</small>
@@ -6264,6 +6274,7 @@ https://example.com/image2.jpg"></textarea>
             comment_max_links: formData.get('comment_max_links'),
             comment_spam_keywords: formData.get('comment_spam_keywords'),
             site_description: formData.get('site_description'),
+            home_posts_per_page: formData.get('home_posts_per_page'),
             site_keywords: formData.get('site_keywords'),
             site_author: formData.get('site_author'),
             site_favicon: formData.get('site_favicon'),

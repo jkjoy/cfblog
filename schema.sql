@@ -273,6 +273,7 @@ INSERT OR IGNORE INTO site_settings (setting_key, setting_value) VALUES
 ('site_description', '基于 Cloudflare Workers + D1 + R2 构建的现代化博客系统'),
 ('site_keywords', 'blog, cloudflare, workers, vue3, typescript'),
 ('site_author', 'CFBlog'),
+('home_posts_per_page', '15'),
 ('comment_turnstile_enabled', '0'),
 ('comment_turnstile_site_key', ''),
 ('comment_turnstile_secret_key', ''),
