@@ -162,6 +162,17 @@ interface CommonSiteData {
   topTags: TaxonomyItem[];
 }
 
+interface RssFeedItem {
+  authorName: string;
+  categories: string[];
+  contentHtml: string;
+  excerpt: string;
+  link: string;
+  publishedAt: string;
+  title: string;
+  updatedAt: string;
+}
+
 interface RawPostRow {
   author_avatar_url: string | null;
   author_bio: string | null;
@@ -237,6 +248,8 @@ const RESERVED_NAV_SLUGS = new Set([
   'wp-json',
 ]);
 
+const RSS_FEED_LIMIT = 50;
+
 export function registerPublicSiteRoutes(app: AppRouter): void {
   app.get('/favicon.ico', servePublicAsset);
 
@@ -254,6 +267,7 @@ export function registerPublicSiteRoutes(app: AppRouter): void {
     });
   });
 
+  app.get('/rss.xml', renderRssFeed);
   app.get('/archives', renderArchivePage);
   app.get('/archive', renderArchivePage);
   app.get('/categories/:slug', renderCategoryPage);
@@ -310,6 +324,15 @@ export async function renderPublicHome(c: AppContext): Promise<Response> {
       title: keyword ? `${keyword} - ${common.site.title}` : common.site.title,
     }),
   );
+}
+
+async function renderRssFeed(c: AppContext): Promise<Response> {
+  const site = await getSiteMeta(c.env, c.req.url);
+  const items = await getRssFeedItems(c.env, site, RSS_FEED_LIMIT);
+  return c.body(renderRssXml(site, items), 200, {
+    'Cache-Control': 'public, max-age=900',
+    'Content-Type': 'application/rss+xml; charset=utf-8',
+  });
 }
 
 async function renderArchivePage(c: AppContext): Promise<Response> {
@@ -912,6 +935,47 @@ async function getRecentPosts(
   return hydratePostCards(env, site, result.results || []);
 }
 
+async function getRssFeedItems(env: Env, site: SiteMeta, limit: number): Promise<RssFeedItem[]> {
+  const result = await env.DB.prepare(`
+    SELECT p.*, u.display_name AS author_display_name, u.username AS author_username,
+           u.avatar_url AS author_avatar_url, u.bio AS author_bio
+    FROM posts p
+    LEFT JOIN users u ON u.id = p.author_id
+    WHERE p.post_type = 'post'
+      AND p.status = 'publish'
+    ORDER BY COALESCE(p.published_at, p.created_at) DESC
+    LIMIT ?
+  `).bind(limit).all<RawPostRow>();
+
+  const rows = result.results || [];
+  const postIds = rows.map((row) => row.id);
+  const [categoryMap, tagMap] = await Promise.all([
+    getCategoryMapForPosts(env, postIds),
+    getTagMapForPosts(env, postIds),
+  ]);
+
+  return rows.map((row) => {
+    const articleUrl = buildAbsoluteUrl(site.baseUrl, `/${encodeURIComponent(row.slug)}`);
+    const contentSource = String(row.content || '');
+    const excerptSource = String(row.excerpt || '').trim() || toPlainText(contentSource);
+    const categoryNames = [
+      ...(categoryMap.get(row.id) || []).map((item) => item.name),
+      ...(tagMap.get(row.id) || []).map((item) => item.name),
+    ];
+
+    return {
+      authorName: mapAuthor(row, site.authorName).name,
+      categories: [...new Set(categoryNames.filter(Boolean))],
+      contentHtml: absolutizeHtmlUrls(renderBodyContent(contentSource), articleUrl),
+      excerpt: truncateText(excerptSource, 280),
+      link: articleUrl,
+      publishedAt: String(row.published_at || row.created_at || ''),
+      title: String(row.title || ''),
+      updatedAt: String(row.updated_at || row.published_at || row.created_at || ''),
+    };
+  });
+}
+
 async function getPostList(
   env: Env,
   site: SiteMeta,
@@ -1411,6 +1475,7 @@ function renderLayout(input: {
   const pageTitle = escapeHtml(input.title);
   const siteTitle = escapeHtml(input.common.site.title);
   const headerHeight = input.activePath === '/' ? '38.88rem' : '28.88rem';
+  const rssUrl = buildAbsoluteUrl(input.common.site.baseUrl, '/rss.xml');
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1427,6 +1492,9 @@ function renderLayout(input: {
   <meta property="og:site_name" content="${siteTitle}">
   <meta property="og:url" content="${escapeAttribute(canonicalUrl)}">
   <link rel="canonical" href="${escapeAttribute(canonicalUrl)}">
+  <link rel="alternate" type="application/rss+xml" title="${escapeAttribute(
+    `${input.common.site.title} RSS`,
+  )}" href="${escapeAttribute(rssUrl)}">
   <link rel="stylesheet" href="/_cfblog/vh-theme.css">
   <link rel="stylesheet" href="/_cfblog/style.css">
   ${
@@ -1673,6 +1741,7 @@ function renderFooter(common: CommonSiteData): string {
             >
           </a>
         </p>
+        <p><a href="/rss.xml" target="_blank" rel="noopener noreferrer">RSS 订阅</a></p>
       </section>
     </footer>
   `;
@@ -2576,6 +2645,42 @@ function escapeAttribute(value: string): string {
   return escapeHtml(value);
 }
 
+function wrapCdata(value: string): string {
+  return `<![CDATA[${String(value || '').replace(/]]>/g, ']]]]><![CDATA[>')}]]>`;
+}
+
+function formatRssDate(value: string | null | undefined): string {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toUTCString();
+  }
+  return date.toUTCString();
+}
+
+function absolutizeHtmlUrls(html: string, baseUrl: string): string {
+  return html.replace(
+    /\b(href|src)=("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    (_match, attrName: string, _rawValue, doubleQuoted: string | undefined, singleQuoted: string | undefined, unquoted: string | undefined) => {
+      const originalValue = doubleQuoted ?? singleQuoted ?? unquoted ?? '';
+      const nextValue = absolutizeUrl(originalValue, baseUrl);
+      return `${attrName}="${escapeAttribute(nextValue)}"`;
+    },
+  );
+}
+
+function absolutizeUrl(value: string, baseUrl: string): string {
+  const trimmed = String(value || '').trim();
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:/i.test(trimmed) || trimmed.startsWith('#')) {
+    return trimmed;
+  }
+
+  try {
+    return new URL(trimmed, baseUrl).toString();
+  } catch {
+    return trimmed;
+  }
+}
+
 function escapeSvgText(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -2797,6 +2902,60 @@ function buildAbsoluteUrl(baseUrl: string, path: string): string {
     return path;
   }
   return `${normalizeBaseUrl(baseUrl)}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+function renderRssXml(site: SiteMeta, items: RssFeedItem[]): string {
+  const feedUrl = buildAbsoluteUrl(site.baseUrl, '/rss.xml');
+  const channelImageUrl = site.logoUrl
+    ? buildAbsoluteUrl(site.baseUrl, site.logoUrl)
+    : site.faviconUrl
+      ? buildAbsoluteUrl(site.baseUrl, site.faviconUrl)
+      : '';
+  const lastBuildDate = formatRssDate(items[0]?.updatedAt || items[0]?.publishedAt);
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>${escapeHtml(site.title)}</title>
+    <link>${escapeHtml(site.baseUrl)}</link>
+    <description>${escapeHtml(site.description)}</description>
+    <language>zh-CN</language>
+    <generator>CFBlog</generator>
+    <docs>https://www.rssboard.org/rss-specification</docs>
+    <ttl>60</ttl>
+    <lastBuildDate>${escapeHtml(lastBuildDate)}</lastBuildDate>
+    <atom:link href="${escapeAttribute(feedUrl)}" rel="self" type="application/rss+xml" />
+    ${
+      site.adminEmail
+        ? `<managingEditor>${escapeHtml(site.adminEmail)} (${escapeHtml(site.authorName)})</managingEditor>
+    <webMaster>${escapeHtml(site.adminEmail)} (${escapeHtml(site.authorName)})</webMaster>`
+        : ''
+    }
+    ${
+      channelImageUrl
+        ? `<image>
+      <url>${escapeHtml(channelImageUrl)}</url>
+      <title>${escapeHtml(site.title)}</title>
+      <link>${escapeHtml(site.baseUrl)}</link>
+    </image>`
+        : ''
+    }
+    ${items
+      .map(
+        (item) => `    <item>
+      <title>${escapeHtml(item.title)}</title>
+      <link>${escapeHtml(item.link)}</link>
+      <guid isPermaLink="true">${escapeHtml(item.link)}</guid>
+      <pubDate>${escapeHtml(formatRssDate(item.publishedAt))}</pubDate>
+      <dc:creator>${wrapCdata(item.authorName)}</dc:creator>
+      ${item.categories.map((category) => `<category>${wrapCdata(category)}</category>`).join('')}
+      <description>${wrapCdata(item.excerpt)}</description>
+      <content:encoded>${wrapCdata(item.contentHtml)}</content:encoded>
+    </item>`,
+      )
+      .join('\n')}
+  </channel>
+</rss>`;
 }
 
 function buildCanonicalPath(path: string, page: number, query?: Record<string, string>): string {
