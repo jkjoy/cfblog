@@ -173,6 +173,11 @@ interface RssFeedItem {
   updatedAt: string;
 }
 
+interface SitemapUrlEntry {
+  lastModified?: string;
+  path: string;
+}
+
 interface RawPostRow {
   author_avatar_url: string | null;
   author_bio: string | null;
@@ -242,6 +247,9 @@ const RESERVED_NAV_SLUGS = new Set([
   'links',
   'media',
   'moments',
+  'robots.txt',
+  'rss.xml',
+  'sitemap.xml',
   'tag',
   'talking',
   'wp-admin',
@@ -267,7 +275,9 @@ export function registerPublicSiteRoutes(app: AppRouter): void {
     });
   });
 
+  app.get('/robots.txt', serveRobotsTxt);
   app.get('/rss.xml', renderRssFeed);
+  app.get('/sitemap.xml', serveSitemapXml);
   app.get('/archives', renderArchivePage);
   app.get('/archive', renderArchivePage);
   app.get('/categories/:slug', renderCategoryPage);
@@ -342,6 +352,23 @@ async function renderRssFeed(c: AppContext): Promise<Response> {
   return c.body(renderRssXml(site, items), 200, {
     ...headers,
     'Content-Type': 'application/rss+xml; charset=utf-8',
+  });
+}
+
+async function serveRobotsTxt(c: AppContext): Promise<Response> {
+  const site = await getSiteMeta(c.env, c.req.url);
+  return c.body(renderRobotsTxt(site), 200, {
+    'Cache-Control': 'public, max-age=3600',
+    'Content-Type': 'text/plain; charset=utf-8',
+  });
+}
+
+async function serveSitemapXml(c: AppContext): Promise<Response> {
+  const site = await getSiteMeta(c.env, c.req.url);
+  const entries = await getSitemapEntries(c.env);
+  return c.body(renderSitemapXml(site, entries), 200, {
+    'Cache-Control': 'public, max-age=3600',
+    'Content-Type': 'application/xml; charset=utf-8',
   });
 }
 
@@ -984,6 +1011,111 @@ async function getRssFeedItems(env: Env, site: SiteMeta, limit: number): Promise
       updatedAt: String(row.updated_at || row.published_at || row.created_at || ''),
     };
   });
+}
+
+async function getSitemapEntries(env: Env): Promise<SitemapUrlEntry[]> {
+  const [contentRows, categoryRows, tagRows, latestPostRow, linkRow, momentRow] = await Promise.all([
+    env.DB.prepare(`
+      SELECT slug, COALESCE(updated_at, published_at, created_at) AS lastmod
+      FROM posts
+      WHERE status = 'publish'
+        AND post_type IN ('post', 'page')
+      ORDER BY COALESCE(published_at, created_at) DESC
+    `).all<{ slug: string; lastmod: string | null }>(),
+    env.DB.prepare(`
+      SELECT c.slug, MAX(COALESCE(p.updated_at, p.published_at, p.created_at)) AS lastmod
+      FROM categories c
+      INNER JOIN post_categories pc ON pc.category_id = c.id
+      INNER JOIN posts p ON p.id = pc.post_id
+      WHERE p.status = 'publish'
+        AND p.post_type = 'post'
+      GROUP BY c.id, c.slug
+      ORDER BY c.name ASC
+    `).all<{ slug: string; lastmod: string | null }>(),
+    env.DB.prepare(`
+      SELECT t.slug, MAX(COALESCE(p.updated_at, p.published_at, p.created_at)) AS lastmod
+      FROM tags t
+      INNER JOIN post_tags pt ON pt.tag_id = t.id
+      INNER JOIN posts p ON p.id = pt.post_id
+      WHERE p.status = 'publish'
+        AND p.post_type = 'post'
+      GROUP BY t.id, t.slug
+      ORDER BY t.name ASC
+    `).all<{ slug: string; lastmod: string | null }>(),
+    env.DB.prepare(`
+      SELECT MAX(COALESCE(updated_at, published_at, created_at)) AS lastmod
+      FROM posts
+      WHERE status = 'publish'
+        AND post_type = 'post'
+    `).first<{ lastmod: string | null }>(),
+    env.DB.prepare(`
+      SELECT COUNT(*) AS count, MAX(COALESCE(updated_at, created_at)) AS lastmod
+      FROM links
+      WHERE visible = 'yes'
+    `).first<{ count: number; lastmod: string | null }>(),
+    env.DB.prepare(`
+      SELECT COUNT(*) AS count, MAX(COALESCE(updated_at, created_at)) AS lastmod
+      FROM moments
+      WHERE status = 'publish'
+    `).first<{ count: number; lastmod: string | null }>(),
+  ]);
+
+  const entries: SitemapUrlEntry[] = [
+    {
+      lastModified: formatSitemapLastmod(latestPostRow?.lastmod),
+      path: '/',
+    },
+    {
+      lastModified: formatSitemapLastmod(latestPostRow?.lastmod),
+      path: '/archives',
+    },
+  ];
+
+  if (Number(linkRow?.count || 0) > 0) {
+    entries.push({
+      lastModified: formatSitemapLastmod(linkRow?.lastmod),
+      path: '/links',
+    });
+  }
+
+  if (Number(momentRow?.count || 0) > 0) {
+    entries.push({
+      lastModified: formatSitemapLastmod(momentRow?.lastmod),
+      path: '/talking',
+    });
+  }
+
+  for (const row of contentRows.results || []) {
+    if (!isIndexableContentSlug(row.slug)) {
+      continue;
+    }
+    entries.push({
+      lastModified: formatSitemapLastmod(row.lastmod),
+      path: `/${encodeURIComponent(row.slug)}`,
+    });
+  }
+
+  for (const row of categoryRows.results || []) {
+    if (!isIndexableNestedSlug(row.slug)) {
+      continue;
+    }
+    entries.push({
+      lastModified: formatSitemapLastmod(row.lastmod),
+      path: `/categories/${encodeURIComponent(row.slug)}`,
+    });
+  }
+
+  for (const row of tagRows.results || []) {
+    if (!isIndexableNestedSlug(row.slug)) {
+      continue;
+    }
+    entries.push({
+      lastModified: formatSitemapLastmod(row.lastmod),
+      path: `/tag/${encodeURIComponent(row.slug)}`,
+    });
+  }
+
+  return entries;
 }
 
 async function getPostList(
@@ -2678,6 +2810,25 @@ function formatRssDate(value: string | null | undefined): string {
   return date.toUTCString();
 }
 
+function formatSitemapLastmod(value: string | null | undefined): string {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  const match = normalized.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match?.[1]) {
+    return match[1];
+  }
+
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
 function absolutizeHtmlUrls(html: string, baseUrl: string): string {
   return html.replace(
     /\b(href|src)=("([^"]*)"|'([^']*)'|([^\s>]+))/gi,
@@ -2925,6 +3076,27 @@ function buildAbsoluteUrl(baseUrl: string, path: string): string {
   return `${normalizeBaseUrl(baseUrl)}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+function isIndexableContentSlug(slug: string): boolean {
+  return !!slug && !slug.includes('.') && !RESERVED_NAV_SLUGS.has(slug);
+}
+
+function isIndexableNestedSlug(slug: string): boolean {
+  return !!slug && !slug.includes('.');
+}
+
+function renderRobotsTxt(site: SiteMeta): string {
+  return [
+    'User-agent: *',
+    'Allow: /',
+    'Disallow: /wp-admin',
+    'Disallow: /wp-admin/',
+    'Disallow: /wp-json',
+    'Disallow: /wp-json/',
+    '',
+    `Sitemap: ${buildAbsoluteUrl(site.baseUrl, '/sitemap.xml')}`,
+  ].join('\n');
+}
+
 function renderRssXml(site: SiteMeta, items: RssFeedItem[]): string {
   const feedUrl = buildAbsoluteUrl(site.baseUrl, '/rss.xml');
   const channelImageUrl = site.logoUrl
@@ -2977,6 +3149,22 @@ function renderRssXml(site: SiteMeta, items: RssFeedItem[]): string {
       .join('\n')}
   </channel>
 </rss>`;
+}
+
+function renderSitemapXml(site: SiteMeta, entries: SitemapUrlEntry[]): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  ${entries
+    .map(
+      (entry) => `  <url>
+    <loc>${escapeHtml(buildAbsoluteUrl(site.baseUrl, entry.path))}</loc>
+    ${entry.lastModified ? `<lastmod>${escapeHtml(entry.lastModified)}</lastmod>` : ''}
+  </url>`,
+    )
+    .join('\n')}
+</urlset>`;
 }
 
 function renderRssPreviewPage(site: SiteMeta, items: RssFeedItem[]): string {
