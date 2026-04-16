@@ -1894,6 +1894,18 @@ function renderFooter(common: CommonSiteData): string {
               decoding="async"
             >
           </a>
+          <a
+            href="/sitemap.xml"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="查看 Sitemap XML"
+          >
+            <img
+              src="https://img.shields.io/badge/Sitemap-XML-34A853?style=flat-square&logo=google&logoColor=white"
+              alt="Sitemap XML"
+              decoding="async"
+            >
+          </a>
         </p>
       </section>
     </footer>
