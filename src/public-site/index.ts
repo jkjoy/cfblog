@@ -2980,9 +2980,13 @@ function renderRssXml(site: SiteMeta, items: RssFeedItem[]): string {
 }
 
 function renderRssPreviewPage(site: SiteMeta, items: RssFeedItem[]): string {
-  const feedUrl = '/rss.xml?view=xml';
-  const siteUrl = site.baseUrl;
+  const subscribeUrl = buildAbsoluteUrl(site.baseUrl, '/rss.xml');
+  const rawXmlUrl = buildAbsoluteUrl(site.baseUrl, '/rss.xml?view=xml');
+  const siteUrl = buildAbsoluteUrl(site.baseUrl, '/');
   const lastBuildDate = formatRssDate(items[0]?.updatedAt || items[0]?.publishedAt);
+  const feedlyUrl = `https://feedly.com/i/subscription/feed/${encodeURIComponent(subscribeUrl)}`;
+  const inoreaderUrl = `https://www.inoreader.com/?add_feed=${encodeURIComponent(subscribeUrl)}`;
+  const newsblurUrl = `https://www.newsblur.com/?url=${encodeURIComponent(subscribeUrl)}`;
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -2993,205 +2997,300 @@ function renderRssPreviewPage(site: SiteMeta, items: RssFeedItem[]): string {
   <meta name="description" content="${escapeAttribute(site.description)}">
   <meta name="robots" content="noindex,follow">
   <style>
+    :root {
+      color-scheme: dark;
+      --rss-bg: #090915;
+      --rss-card: #121220;
+      --rss-card-strong: #171729;
+      --rss-border: rgba(255, 255, 255, 0.08);
+      --rss-border-strong: rgba(255, 255, 255, 0.14);
+      --rss-title: #ffffff;
+      --rss-text: #d6d6e1;
+      --rss-muted: #8d90a6;
+      --rss-link: #a5b4fc;
+      --rss-link-strong: #f9a8d4;
+      --rss-accent: #f97316;
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
+      min-height: 100vh;
       font-family: "SF Pro Display", "PingFang SC", "Segoe UI", sans-serif;
-      color: #20343a;
+      color: var(--rss-text);
       background:
-        radial-gradient(circle at top left, rgba(1, 196, 182, 0.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(240, 163, 77, 0.18), transparent 24%),
-        linear-gradient(180deg, #f4fbfa 0%, #fffaf3 100%);
+        radial-gradient(circle at top left, rgba(79, 70, 229, 0.22), transparent 30%),
+        radial-gradient(circle at top right, rgba(232, 121, 249, 0.18), transparent 24%),
+        linear-gradient(180deg, #090915 0%, #11111d 100%);
     }
     .shell {
-      width: min(1080px, calc(100% - 32px));
+      width: min(1040px, calc(100% - 32px));
       margin: 0 auto;
-      padding: 40px 0 56px;
+      padding: 32px 0 56px;
     }
-    .hero {
-      padding: 28px;
-      border: 1px solid rgba(32, 52, 58, 0.08);
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.86);
-      backdrop-filter: blur(18px);
-      box-shadow: 0 20px 60px rgba(31, 71, 68, 0.08);
+    .header {
+      display: grid;
+      gap: 12px;
     }
-    .eyebrow {
-      display: inline-flex;
+    .brand {
+      display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(255, 107, 53, 0.12);
-      color: #d55423;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      gap: 10px;
+      color: var(--rss-title);
+      text-decoration: none;
+      width: fit-content;
     }
-    h1 {
-      margin: 18px 0 12px;
-      font-size: clamp(32px, 5vw, 52px);
-      line-height: 1.04;
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      color: var(--rss-accent);
+      flex: none;
+    }
+    .brand-title {
+      font-size: clamp(28px, 5vw, 40px);
+      line-height: 1.1;
+      font-weight: 800;
       letter-spacing: -0.03em;
+      background: linear-gradient(90deg, #818cf8 0%, #e879f9 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
     }
-    .hero p {
-      margin: 0;
+    .summary {
       max-width: 760px;
-      font-size: 16px;
-      line-height: 1.75;
-      color: #4f666c;
+      font-size: 1.0625rem;
+      line-height: 1.85;
+      color: var(--rss-text);
     }
-    .meta {
+    .caption {
+      color: var(--rss-muted);
+      font-size: 0.9375rem;
+      line-height: 1.7;
+    }
+    .caption a,
+    .subscribe-links a,
+    .item-content a,
+    .item-read {
+      color: var(--rss-link);
+      text-decoration: none;
+      transition: color .15s ease;
+    }
+    .caption a:hover,
+    .subscribe-links a:hover,
+    .item-content a:hover,
+    .item-read:hover {
+      color: var(--rss-link-strong);
+    }
+    .subscribe-links {
+      color: var(--rss-text);
+      font-size: 0.9375rem;
+      line-height: 1.8;
+    }
+    .divider {
+      height: 1px;
+      margin: 24px 0;
+      background: linear-gradient(90deg, transparent 0%, var(--rss-border-strong) 12%, var(--rss-border-strong) 88%, transparent 100%);
+    }
+    .feed-stats {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 20px;
+      gap: 10px;
     }
-    .meta a, .meta span {
+    .feed-stats span,
+    .feed-stats a {
       display: inline-flex;
       align-items: center;
-      min-height: 36px;
-      padding: 0 14px;
+      min-height: 34px;
+      padding: 0 12px;
       border-radius: 999px;
-      background: #ffffff;
-      border: 1px solid rgba(32, 52, 58, 0.08);
-      color: #20343a;
+      border: 1px solid var(--rss-border);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--rss-text);
       text-decoration: none;
       font-size: 13px;
-      box-shadow: 0 8px 24px rgba(31, 71, 68, 0.06);
     }
-    .tip {
-      margin: 20px 0 0;
-      padding: 14px 16px;
-      border-left: 4px solid #01c4b6;
-      border-radius: 14px;
-      background: rgba(1, 196, 182, 0.08);
-      color: #31535a;
-      line-height: 1.7;
+    .feed-stats a:hover {
+      border-color: rgba(129, 140, 248, 0.45);
+      color: var(--rss-title);
     }
     .list {
       display: grid;
       gap: 18px;
-      margin-top: 26px;
     }
     .item {
-      padding: 24px;
-      border: 1px solid rgba(32, 52, 58, 0.08);
-      border-radius: 22px;
-      background: rgba(255, 255, 255, 0.88);
-      box-shadow: 0 16px 48px rgba(31, 71, 68, 0.06);
+      border: 1px solid var(--rss-border);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(23, 23, 41, 0.88) 0%, rgba(18, 18, 32, 0.9) 100%);
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
     }
-    .item h2 {
-      margin: 0 0 12px;
-      font-size: 24px;
-      line-height: 1.28;
+    .item > details {
+      display: block;
     }
-    .item h2 a {
-      color: #10292d;
-      text-decoration: none;
+    .item > details[open] {
+      background: rgba(255, 255, 255, 0.01);
     }
-    .item h2 a:hover {
-      color: #01a79b;
+    .item > details > summary {
+      display: block;
+      padding: 18px 20px;
+      cursor: pointer;
+      list-style: none;
+    }
+    .item > details > summary::-webkit-details-marker {
+      display: none;
+    }
+    .item-heading {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+    .item-title {
+      margin: 0;
+      font-size: 1.125rem;
+      line-height: 1.55;
+      font-weight: 700;
+      color: var(--rss-title);
     }
     .item-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
-      color: #60757a;
-      font-size: 13px;
+      margin-top: 8px;
+      color: var(--rss-muted);
+      font-size: 0.875rem;
     }
-    .item-meta span {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 10px;
+    .item-toggle {
+      flex: none;
+      width: 30px;
+      height: 30px;
       border-radius: 999px;
-      background: rgba(244, 247, 248, 0.95);
+      border: 1px solid var(--rss-border);
+      background: rgba(255, 255, 255, 0.03);
+      position: relative;
     }
-    .excerpt {
+    .item-toggle::before,
+    .item-toggle::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 1.5px;
+      background: var(--rss-text);
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      transition: transform .15s ease, opacity .15s ease;
+    }
+    .item-toggle::after {
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+    details[open] .item-toggle::after {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(90deg) scaleX(.3);
+    }
+    .item-content {
+      padding: 0 20px 20px;
+      color: var(--rss-text);
+      line-height: 1.85;
+    }
+    .item-content p {
       margin: 0;
-      color: #445d63;
-      line-height: 1.8;
     }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 18px;
-    }
-    .actions a {
+    .item-read {
       display: inline-flex;
-      align-items: center;
-      min-height: 38px;
-      padding: 0 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(32, 52, 58, 0.1);
-      color: #20343a;
-      text-decoration: none;
-      background: #fff;
-    }
-    .actions a.primary {
-      background: #01c4b6;
-      color: #fff;
-      border-color: #01c4b6;
+      margin-top: 14px;
+      font-weight: 700;
     }
     .footer {
       margin-top: 24px;
-      color: #6a7d81;
+      color: var(--rss-muted);
       font-size: 13px;
-      text-align: center;
+      line-height: 1.8;
+    }
+    .footer strong {
+      color: var(--rss-title);
     }
     @media (max-width: 640px) {
-      .shell { width: min(100% - 20px, 1080px); padding-top: 20px; }
-      .hero, .item { padding: 18px; border-radius: 18px; }
-      h1 { font-size: 28px; }
-      .item h2 { font-size: 20px; }
+      .shell {
+        width: min(100% - 20px, 1040px);
+        padding-top: 22px;
+      }
+      .brand-title {
+        font-size: 1.9rem;
+      }
+      .item > details > summary,
+      .item-content {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="shell">
-    <section class="hero">
-      <span class="eyebrow">RSS Feed</span>
-      <h1>${escapeHtml(site.title)}</h1>
-      <p>${escapeHtml(site.description)}</p>
-      <div class="meta">
+    <header class="header">
+      <a class="brand" href="${escapeAttribute(siteUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttribute(site.title)}">
+        <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 19a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+          <path d="M4 4a16 16 0 0 1 16 16"></path>
+          <path d="M4 11a9 9 0 0 1 9 9"></path>
+        </svg>
+        <span class="brand-title">${escapeHtml(site.title)}</span>
+      </a>
+      <p class="summary">${escapeHtml(site.description)}</p>
+      <p class="caption">
+        这是 <a href="${escapeAttribute(siteUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(site.title)}</a> 的 RSS 订阅页。浏览器会看到这个预览；RSS 阅读器直接订阅 <code>/rss.xml</code> 会拿到标准 XML。
+      </p>
+      <p class="subscribe-links">
+        你可以通过
+        <a href="${escapeAttribute(feedlyUrl)}" target="_blank" rel="noopener noreferrer">Feedly</a>、
+        <a href="${escapeAttribute(inoreaderUrl)}" target="_blank" rel="noopener noreferrer">Inoreader</a>、
+        <a href="${escapeAttribute(newsblurUrl)}" target="_blank" rel="noopener noreferrer">NewsBlur</a>
+        或者 <a href="${escapeAttribute(rawXmlUrl)}" target="_blank" rel="noopener noreferrer">查看原始 XML</a> 订阅这个源。
+      </p>
+      <div class="feed-stats">
         <a href="${escapeAttribute(siteUrl)}" target="_blank" rel="noopener noreferrer">访问网站</a>
-        <a href="${escapeAttribute(feedUrl)}" target="_blank" rel="noopener noreferrer">查看原始 XML</a>
+        <a href="${escapeAttribute(subscribeUrl)}" target="_blank" rel="noopener noreferrer">订阅地址</a>
         <span>共 ${items.length} 篇文章</span>
         <span>最近构建: ${escapeHtml(lastBuildDate)}</span>
       </div>
-      <div class="tip">
-        浏览器访问当前地址时会显示这个预览页；RSS 阅读器请求同一个 <code>/rss.xml</code> 地址时，仍然拿到标准 RSS XML。
-      </div>
-    </section>
+    </header>
+
+    <div class="divider"></div>
 
     <section class="list">
       ${items
         .map(
           (item) => `
             <article class="item">
-              <h2><a href="${escapeAttribute(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a></h2>
-              <div class="item-meta">
-                <span>${escapeHtml(formatRssDate(item.publishedAt))}</span>
-                <span>作者: ${escapeHtml(item.authorName)}</span>
-                ${item.categories
-                  .slice(0, 3)
-                  .map((category) => `<span>#${escapeHtml(category)}</span>`)
-                  .join('')}
-              </div>
-              <p class="excerpt">${escapeHtml(item.excerpt)}</p>
-              <div class="actions">
-                <a class="primary" href="${escapeAttribute(item.link)}" target="_blank" rel="noopener noreferrer">阅读全文</a>
-              </div>
+              <details${item === items[0] ? ' open' : ''}>
+                <summary>
+                  <div class="item-heading">
+                    <div>
+                      <h2 class="item-title">${escapeHtml(item.title)}</h2>
+                      <div class="item-meta">
+                        <span>${escapeHtml(formatRssDate(item.publishedAt))}</span>
+                        <span> · </span>
+                        <span>${escapeHtml(item.authorName)}</span>
+                      </div>
+                    </div>
+                    <span class="item-toggle" aria-hidden="true"></span>
+                  </div>
+                </summary>
+                <div class="item-content">
+                  <p>${escapeHtml(item.excerpt)}</p>
+                  <a class="item-read" href="${escapeAttribute(item.link)}" target="_blank" rel="noopener noreferrer">Read More</a>
+                </div>
+              </details>
             </article>
           `,
         )
         .join('')}
     </section>
 
-    <p class="footer">This preview is rendered server-side for browsers. Feed readers still receive machine-readable XML.</p>
+    <div class="divider"></div>
+
+    <footer class="footer">
+      <strong>RSS Preview</strong><br>
+      灵感参考 vvhan.com/rss.xml 的预览层级，但这里仍然使用服务端 HTML 预览，避免浏览器对 XSLT 支持不一致。
+    </footer>
   </div>
 </body>
 </html>`;
