@@ -1428,7 +1428,7 @@ async function getMoments(
     FROM moments m
     LEFT JOIN users u ON u.id = m.author_id
     WHERE m.status = 'publish'
-    ORDER BY COALESCE(m.updated_at, m.created_at) DESC
+    ORDER BY m.created_at DESC, m.id DESC
     LIMIT ? OFFSET ?
   `).bind(perPage, offset).all<RawMomentRow>();
 
