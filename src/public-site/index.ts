@@ -2224,11 +2224,11 @@ function renderCommentForm(input: {
           <span>邮箱</span>
           <input name="author_email" type="email" required placeholder="you@example.com">
         </label>
+        <label>
+          <span>网址（可选）</span>
+          <input name="author_url" type="url" placeholder="https://example.com">
+        </label>
       </div>
-      <label>
-        <span>网址（可选）</span>
-        <input name="author_url" type="url" placeholder="https://example.com">
-      </label>
       <input
         name="website"
         type="text"

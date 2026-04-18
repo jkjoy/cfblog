@@ -602,7 +602,7 @@ body.vh-lightbox-open {
 .vh-tools-main form.vh-comment-form .vh-form-grid {
   display: grid;
   gap: 0.88rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .vh-page form.vh-comment-form label,
@@ -810,6 +810,11 @@ article.vh-article-main > main pre {
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
 }
 
+article.vh-article-main > main pre.is-code-collapsed {
+  max-height: var(--vh-code-collapsed-height);
+  overflow: hidden;
+}
+
 article.vh-article-main > main pre::before {
   content: "";
   position: absolute;
@@ -882,6 +887,54 @@ article.vh-article-main > main .code-copy-button.is-copied {
   background: rgba(34, 197, 94, 0.18);
   border-color: rgba(34, 197, 94, 0.34);
   color: #dcfce7;
+}
+
+article.vh-article-main > main .code-expand-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6rem;
+  border-radius: 0 0 1rem 1rem;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0) 0%, rgba(17, 24, 39, 0.84) 58%, rgba(17, 24, 39, 0.98) 100%);
+  pointer-events: none;
+}
+
+article.vh-article-main > main .code-expand-button {
+  position: absolute;
+  left: 50%;
+  bottom: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  padding: 0;
+  border: 1px solid rgba(203, 213, 225, 0.24);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.76);
+  color: #f8fafc;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.34);
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: transform 0.18s ease-in-out, background-color 0.18s ease-in-out, border-color 0.18s ease-in-out;
+}
+
+article.vh-article-main > main .code-expand-button:hover {
+  transform: translateX(-50%) translateY(-1px);
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(226, 232, 240, 0.34);
+}
+
+article.vh-article-main > main .code-expand-button:focus-visible,
+article.vh-article-main > main .code-copy-button:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.96);
+  outline-offset: 3px;
+}
+
+article.vh-article-main > main .code-expand-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 section.vh-archive-main {
@@ -1438,6 +1491,7 @@ export const PUBLIC_SITE_JS = String.raw`(() => {
     });
   }
 
+  const maxCollapsedCodeLines = 10;
   const codeBlocks = Array.from(document.querySelectorAll('article.vh-article-main > main pre'));
   codeBlocks.forEach((block) => {
     if (!(block instanceof HTMLElement)) {
@@ -1448,6 +1502,37 @@ export const PUBLIC_SITE_JS = String.raw`(() => {
     const className = code?.className || '';
     const match = className.match(/language-([a-z0-9+#_-]+)/i) || className.match(/lang-([a-z0-9+#_-]+)/i);
     block.dataset.codeLang = match?.[1] || 'code';
+
+    const computedCodeStyle = window.getComputedStyle(code instanceof HTMLElement ? code : block);
+    const computedBlockStyle = window.getComputedStyle(block);
+    const fontSize = Number.parseFloat(computedCodeStyle.fontSize) || 16;
+    const lineHeight = Number.parseFloat(computedCodeStyle.lineHeight) || fontSize * 1.8;
+    const paddingTop = Number.parseFloat(computedBlockStyle.paddingTop) || 0;
+    const paddingBottom = Number.parseFloat(computedBlockStyle.paddingBottom) || 0;
+    const collapsedHeight = Math.ceil(lineHeight * maxCollapsedCodeLines + paddingTop + paddingBottom);
+
+    if (block.scrollHeight - collapsedHeight > lineHeight * 0.75) {
+      block.classList.add('is-code-collapsed');
+      block.style.setProperty('--vh-code-collapsed-height', collapsedHeight + 'px');
+
+      const expandOverlay = document.createElement('div');
+      expandOverlay.className = 'code-expand-overlay';
+      expandOverlay.setAttribute('aria-hidden', 'true');
+
+      const expandButton = document.createElement('button');
+      expandButton.type = 'button';
+      expandButton.className = 'code-expand-button';
+      expandButton.setAttribute('aria-label', '展开全部代码');
+      expandButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 15.25a1 1 0 0 1-.71-.29l-4.5-4.5a1 1 0 1 1 1.42-1.42L12 12.83l3.79-3.79a1 1 0 1 1 1.42 1.42l-4.5 4.5a1 1 0 0 1-.71.29Z"></path></svg>';
+      expandButton.addEventListener('click', () => {
+        block.classList.remove('is-code-collapsed');
+        block.style.removeProperty('--vh-code-collapsed-height');
+        expandOverlay.remove();
+        expandButton.remove();
+      });
+
+      block.append(expandOverlay, expandButton);
+    }
 
     const copyButton = document.createElement('button');
     copyButton.type = 'button';
