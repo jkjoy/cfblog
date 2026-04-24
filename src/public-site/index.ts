@@ -1871,14 +1871,14 @@ function renderFooter(common: CommonSiteData): string {
         }
         <p class="vh-footer-badge">
           <a
-            href="https://github.com/jkjoy/CFBLOG"
+            href="https://github.com/jkjoy/cfblog"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="GitHub stars for jkjoy/CFBLOG"
+            aria-label="GitHub stars for jkjoy/cfblog"
           >
             <img
-              src="https://img.shields.io/github/stars/jkjoy/CFBLOG?style=flat-square"
-              alt="GitHub stars for jkjoy/CFBLOG"
+              src="https://img.shields.io/github/stars/jkjoy/cfblog?style=flat-square"
+              alt="GitHub stars for jkjoy/cfblog"
               decoding="async"
             >
           </a>
