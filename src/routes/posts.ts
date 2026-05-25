@@ -120,8 +120,8 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     }
 
     if (search) {
-      query += ' AND (title LIKE ? OR content LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      query += ' AND (title LIKE ? OR content LIKE ? OR excerpt LIKE ? OR slug LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     // Order
@@ -213,8 +213,8 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
       }
     }
     if (search) {
-      countQuery += ' AND (title LIKE ? OR content LIKE ?)';
-      countParams.push(`%${search}%`, `%${search}%`);
+      countQuery += ' AND (title LIKE ? OR content LIKE ? OR excerpt LIKE ? OR slug LIKE ?)';
+      countParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     const countResult = await c.env.DB.prepare(countQuery).bind(...countParams).first<{ count: number }>();
@@ -576,8 +576,9 @@ posts.put('/:id', authMiddleware, async (c) => {
     }
 
     if (featured_image_url !== undefined) {
+      const featuredImageUrlValue = featured_image_url === null ? null : String(featured_image_url).trim();
       updates.push('featured_image_url = ?');
-      params.push(featured_image_url);
+      params.push(featuredImageUrlValue || null);
     }
 
     if (sticky !== undefined) {
