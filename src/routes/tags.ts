@@ -27,8 +27,8 @@ tags.get('/', async (c) => {
     const params: any[] = [];
 
     if (search) {
-      query += ' AND name LIKE ?';
-      params.push(`%${search}%`);
+      query += ' AND (name LIKE ? OR slug LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
     }
 
     if (slug) {
@@ -75,8 +75,8 @@ tags.get('/', async (c) => {
     let countQuery = 'SELECT COUNT(*) as count FROM tags WHERE 1=1';
     const countParams: any[] = [];
     if (search) {
-      countQuery += ' AND name LIKE ?';
-      countParams.push(`%${search}%`);
+      countQuery += ' AND (name LIKE ? OR slug LIKE ?)';
+      countParams.push(`%${search}%`, `%${search}%`);
     }
     if (slug) {
       countQuery += ' AND slug = ?';

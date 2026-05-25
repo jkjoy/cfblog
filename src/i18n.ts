@@ -161,6 +161,11 @@ export const i18n = {
         editTag: '编辑标签',
         tagName: '标签名称',
         noTags: '还没有标签。',
+        searchPlaceholder: '搜索标签名称或别名',
+        searchNoResults: '没有找到匹配的标签。',
+        paginationSummary: '共 {total} 个标签，第 {page} / {totalPages} 页',
+        previousPage: '上一页',
+        nextPage: '下一页',
         createTag: '创建标签',
         updateTag: '更新标签',
         deleteConfirm: '确定要删除这个标签吗？'
@@ -504,6 +509,11 @@ export const i18n = {
         editTag: 'Edit Tag',
         tagName: 'Tag Name',
         noTags: 'No tags yet.',
+        searchPlaceholder: 'Search tag name or slug',
+        searchNoResults: 'No matching tags found.',
+        paginationSummary: '{total} tags total, page {page} of {totalPages}',
+        previousPage: 'Previous Page',
+        nextPage: 'Next Page',
         createTag: 'Create Tag',
         updateTag: 'Update Tag',
         deleteConfirm: 'Are you sure you want to delete this tag?'
