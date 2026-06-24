@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { marked } from 'marked';
+import sanitizeHtml from 'sanitize-html';
 import type { AppEnv, Env } from '../types';
 import { getPublicCommentProtectionSettings } from '../comment-security';
 import { getSiteSettings, md5, normalizeBaseUrl } from '../utils';
@@ -436,7 +437,7 @@ async function renderArchivePage(c: AppContext): Promise<Response> {
 }
 
 async function renderCategoryPage(c: AppContext): Promise<Response> {
-  const slug = c.req.param('slug');
+  const slug = c.req.param('slug') || '';
   const common = await getCommonSiteData(c.env, c.req.url);
   const category = await getCategoryBySlug(c.env, slug);
 
@@ -474,7 +475,7 @@ async function renderCategoryPage(c: AppContext): Promise<Response> {
 }
 
 async function renderTagPage(c: AppContext): Promise<Response> {
-  const slug = c.req.param('slug');
+  const slug = c.req.param('slug') || '';
   const common = await getCommonSiteData(c.env, c.req.url);
   const tag = await getTagBySlug(c.env, slug);
 
@@ -593,8 +594,8 @@ async function renderMomentsPage(c: AppContext): Promise<Response> {
 }
 
 async function renderContentBySlug(c: AppContext): Promise<Response> {
-  const slug = c.req.param('slug');
-  if (slug.includes('.')) {
+  const slug = c.req.param('slug') || '';
+  if (!slug || slug.includes('.')) {
     return c.notFound();
   }
   const common = await getCommonSiteData(c.env, c.req.url);
@@ -2731,7 +2732,56 @@ function renderBodyContent(content: string): string {
     return '<p>暂无内容。</p>';
   }
 
-  return forceArticleLinksToNewWindow(marked.parse(content) as string);
+  const html = marked.parse(content) as string;
+  const sanitized = sanitizeHtml(html, {
+    allowedTags: [
+      'a',
+      'blockquote',
+      'br',
+      'code',
+      'del',
+      'em',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'hr',
+      'img',
+      'li',
+      'ol',
+      'p',
+      'pre',
+      'span',
+      'strong',
+      'table',
+      'tbody',
+      'td',
+      'th',
+      'thead',
+      'tr',
+      'ul'
+    ],
+    allowedAttributes: {
+      a: ['href', 'name', 'target', 'rel', 'title'],
+      code: ['class'],
+      img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
+      span: ['class'],
+      th: ['align'],
+      td: ['align']
+    },
+    allowedClasses: {
+      code: [/^language-/],
+      span: [/^language-/]
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowedSchemesByTag: {
+      img: ['http', 'https']
+    }
+  });
+
+  return forceArticleLinksToNewWindow(sanitized);
 }
 
 function renderCommentContent(content: string): string {

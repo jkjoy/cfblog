@@ -4,8 +4,22 @@ import type { AppContext, AppEnv, JWTPayload, User } from './types';
 import { createWPError } from './utils';
 import bcrypt from 'bcryptjs';
 
+const DEFAULT_JWT_SECRETS = new Set([
+  'your-jwt-secret-here-change-in-production',
+  'your-jwt-secret-here'
+]);
+
+export function isUnsafeJwtSecret(secret: string): boolean {
+  const normalized = String(secret || '').trim();
+  return normalized.length < 32 || DEFAULT_JWT_SECRETS.has(normalized);
+}
+
 // Generate JWT token
 export async function generateToken(user: User, secret: string): Promise<string> {
+  if (isUnsafeJwtSecret(secret)) {
+    throw new Error('JWT_SECRET is not configured securely.');
+  }
+
   const payload: JWTPayload = {
     userId: user.id,
     username: user.username,
@@ -28,6 +42,10 @@ export async function generateToken(user: User, secret: string): Promise<string>
 // Verify JWT token
 export async function verifyToken(token: string, secret: string): Promise<JWTPayload | null> {
   try {
+    if (isUnsafeJwtSecret(secret)) {
+      return null;
+    }
+
     const encoder = new TextEncoder();
     const secretKey = encoder.encode(secret);
 

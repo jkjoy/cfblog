@@ -1,6 +1,20 @@
 import { Hono } from 'hono';
 import type { AppEnv, JWTPayload, Post } from '../types';
-import { formatPostResponse, generateSlug, generateSlugWithAI, generateExcerptWithAI, buildPaginationHeaders, createWPError, getSiteSettings, sendWebhook } from '../utils';
+import {
+  canViewNonPublicContent,
+  formatPostResponse,
+  generateSlug,
+  generateSlugWithAI,
+  generateExcerptWithAI,
+  buildPaginationHeaders,
+  createWPError,
+  getSiteSettings,
+  isEditorRole,
+  parsePageParam,
+  parsePerPageParam,
+  parseSqlOrder,
+  sendWebhook
+} from '../utils';
 import { authMiddleware, optionalAuthMiddleware, canEditPost, canDeletePost, canPublishPost } from '../auth';
 
 const posts = new Hono<AppEnv>();
@@ -12,8 +26,8 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
     const user = c.get('user') as JWTPayload | undefined;
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '10');
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 10);
     const status = (c.req.query('status') || 'publish').trim().toLowerCase();
     const author = c.req.query('author');
     const categories = c.req.query('categories');
@@ -22,7 +36,7 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     const slug = c.req.query('slug');  // 添加 slug 参数
     const sticky = c.req.query('sticky');  // 添加 sticky 参数
     const orderby = c.req.query('orderby') || 'date';
-    const order = c.req.query('order') || 'desc';
+    const order = parseSqlOrder(c.req.query('order'), 'DESC');
 
     const offset = (page - 1) * perPage;
     const allowedStatuses = new Set(['publish', 'draft', 'pending', 'private', 'trash']);
@@ -42,6 +56,11 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     if (!includeAllStatuses) {
       query += ' AND status = ?';
       params.push(status);
+    }
+
+    if (user && (includeAllStatuses || status !== 'publish') && !isEditorRole(user)) {
+      query += ' AND author_id = ?';
+      params.push(user.userId);
     }
 
     if (author) {
@@ -132,7 +151,7 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
       id: 'id'
     };
     const orderColumn = orderMap[orderby] || 'COALESCE(published_at, created_at)';
-    query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
+    query += ` ORDER BY ${orderColumn} ${order} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
     const result = await c.env.DB.prepare(query).bind(...params).all<Post>();
@@ -144,6 +163,11 @@ posts.get('/', optionalAuthMiddleware, async (c) => {
     if (!includeAllStatuses) {
       countQuery += ' AND status = ?';
       countParams.push(status);
+    }
+
+    if (user && (includeAllStatuses || status !== 'publish') && !isEditorRole(user)) {
+      countQuery += ' AND author_id = ?';
+      countParams.push(user.userId);
     }
 
     if (author) {
@@ -263,13 +287,19 @@ posts.get('/:id', optionalAuthMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     const post = await c.env.DB.prepare('SELECT * FROM posts WHERE id = ? AND post_type = ?')
       .bind(id, 'post')
       .first<Post>();
 
     if (!post) {
+      return createWPError('rest_post_invalid_id', 'Invalid post ID.', 404);
+    }
+
+    const user = c.get('user') as JWTPayload | undefined;
+
+    if (post.status !== 'publish' && !canViewNonPublicContent(user, post.author_id)) {
       return createWPError('rest_post_invalid_id', 'Invalid post ID.', 404);
     }
 
@@ -441,7 +471,7 @@ posts.put('/:id', authMiddleware, async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
     const user = c.get('user') as JWTPayload;
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     // Check if post exists
     const existingPost = await c.env.DB.prepare('SELECT * FROM posts WHERE id = ? AND post_type = ?')
@@ -690,7 +720,7 @@ posts.post('/:id/restore', authMiddleware, async (c) => {
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     const post = await c.env.DB.prepare('SELECT * FROM posts WHERE id = ? AND post_type = ?')
       .bind(id, 'post')
@@ -767,7 +797,7 @@ posts.delete('/:id', authMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const force = c.req.query('force') === 'true';
 
     // Check if post exists

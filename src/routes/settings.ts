@@ -5,6 +5,26 @@ import { authMiddleware, requireRole } from '../auth'
 
 const settings = new Hono<AppEnv>()
 
+const PUBLIC_SETTING_KEYS = new Set([
+  'site_title',
+  'site_description',
+  'site_keywords',
+  'site_author',
+  'home_posts_per_page',
+  'comment_turnstile_enabled',
+  'comment_turnstile_site_key',
+  'site_favicon',
+  'site_logo',
+  'site_notice',
+  'social_telegram',
+  'social_x',
+  'social_mastodon',
+  'social_email',
+  'social_qq',
+  'site_icp',
+  'site_footer_text'
+])
+
 // 获取所有系统设置（管理员专用，包含敏感字段）
 settings.get('/admin', authMiddleware, requireRole('administrator'), async (c) => {
   try {
@@ -36,24 +56,11 @@ settings.get('/', async (c) => {
       ORDER BY setting_key
     `).all()
 
-    // 敏感字段列表，不应返回给前端
-    const sensitiveFields = [
-      'webhook_secret',
-      'webhook_url',
-      'comment_turnstile_secret_key',
-      'mail_notifications_enabled',
-      'notify_admin_on_comment',
-      'notify_commenter_on_reply',
-      'mail_from_name',
-      'mail_from_email'
-    ]
-
-    // 将结果转换为对象格式，过滤敏感字段
+    // 将结果转换为对象格式，只返回明确允许公开的字段
     const settingsObj: Record<string, string> = {}
     for (const row of result.results) {
       const key = row.setting_key as string
-      // 跳过敏感字段
-      if (!sensitiveFields.includes(key)) {
+      if (PUBLIC_SETTING_KEYS.has(key)) {
         settingsObj[key] = row.setting_value as string
       }
     }
@@ -65,10 +72,14 @@ settings.get('/', async (c) => {
   }
 })
 
-// 获取单个设置
+// 获取单个公开设置
 settings.get('/:key', async (c) => {
   try {
     const key = c.req.param('key')
+
+    if (!PUBLIC_SETTING_KEYS.has(key)) {
+      return c.json({ error: 'Setting not found' }, 404)
+    }
 
     const result = await c.env.DB.prepare(`
       SELECT setting_value

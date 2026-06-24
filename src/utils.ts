@@ -1,10 +1,48 @@
-import { Env, Post, PostResponse, Category, CategoryResponse, Tag, TagResponse, Media, MediaResponse, User, UserResponse, Comment, CommentResponse } from './types';
+import { Env, Post, PostResponse, Category, CategoryResponse, Tag, TagResponse, Media, MediaResponse, User, UserResponse, Comment, CommentResponse, JWTPayload } from './types';
 
 // Cache for settings to avoid repeated DB queries
 let settingsCache: Record<string, any> | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minute
 const AI_TEXT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
+
+export function parsePageParam(value: unknown, fallback = 1): number {
+  const parsed = parseInt(String(value ?? '').trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function parsePerPageParam(value: unknown, fallback = 10, max = 100): number {
+  const parsed = parseInt(String(value ?? '').trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return Math.min(parsed, max);
+}
+
+export function parseSqlOrder(value: unknown, fallback: 'ASC' | 'DESC' = 'DESC'): 'ASC' | 'DESC' {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  return normalized === 'ASC' || normalized === 'DESC' ? normalized : fallback;
+}
+
+export function isEditorRole(user: Pick<JWTPayload, 'role'> | null | undefined): boolean {
+  return !!user && ['administrator', 'editor'].includes(user.role);
+}
+
+export function canViewNonPublicContent(
+  user: Pick<JWTPayload, 'role' | 'userId'> | null | undefined,
+  authorId?: number | null
+): boolean {
+  if (!user) {
+    return false;
+  }
+
+  if (isEditorRole(user)) {
+    return true;
+  }
+
+  return authorId !== undefined && authorId !== null && Number(authorId) === Number(user.userId);
+}
 
 // Get site settings from database
 export async function getSiteSettings(env: Env): Promise<Record<string, any>> {

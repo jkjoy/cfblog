@@ -1,9 +1,59 @@
 import { Hono } from 'hono';
 import type { AppEnv, JWTPayload, User } from '../types';
-import { formatUserResponse, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
-import { authMiddleware, optionalAuthMiddleware, requireRole, generateToken, hashPassword, comparePassword } from '../auth';
+import {
+  formatUserResponse,
+  buildPaginationHeaders,
+  createWPError,
+  getSiteSettings,
+  parsePageParam,
+  parsePerPageParam,
+  parseSqlOrder
+} from '../utils';
+import { authMiddleware, optionalAuthMiddleware, requireRole, generateToken, hashPassword, comparePassword, isUnsafeJwtSecret } from '../auth';
 
 const users = new Hono<AppEnv>();
+
+function getClientIp(c: any): string {
+  return String(
+    c.req.header('cf-connecting-ip') ||
+    c.req.header('x-forwarded-for') ||
+    c.req.header('x-real-ip') ||
+    ''
+  )
+    .split(',')[0]
+    .trim();
+}
+
+async function isLoginRateLimited(c: any, username: string): Promise<boolean> {
+  const cache = caches.default;
+  const ip = getClientIp(c) || 'unknown';
+  const normalizedUsername = String(username || '').trim().toLowerCase() || 'unknown';
+  const key = new Request(`https://cfblog.local/rate-login/${encodeURIComponent(ip)}/${encodeURIComponent(normalizedUsername)}`);
+  const existing = await cache.match(key);
+  const attempts = existing ? parseInt(await existing.text(), 10) || 0 : 0;
+
+  if (attempts >= 10) {
+    return true;
+  }
+
+  await cache.put(
+    key,
+    new Response(String(attempts + 1), {
+      headers: {
+        'Cache-Control': 'max-age=300'
+      }
+    })
+  );
+  return false;
+}
+
+async function clearLoginRateLimit(c: any, username: string): Promise<void> {
+  const ip = getClientIp(c) || 'unknown';
+  const normalizedUsername = String(username || '').trim().toLowerCase() || 'unknown';
+  await caches.default.delete(
+    new Request(`https://cfblog.local/rate-login/${encodeURIComponent(ip)}/${encodeURIComponent(normalizedUsername)}`)
+  );
+}
 
 // POST /wp/v2/users/login - Login (non-standard WordPress endpoint but useful)
 users.post('/login', async (c) => {
@@ -16,6 +66,14 @@ users.post('/login', async (c) => {
 
     if (!username || !password) {
       return createWPError('rest_invalid_param', 'Username and password are required.', 400);
+    }
+
+    if (isUnsafeJwtSecret(c.env.JWT_SECRET)) {
+      return createWPError('server_not_configured', 'JWT_SECRET is not configured securely.', 500);
+    }
+
+    if (await isLoginRateLimited(c, username)) {
+      return createWPError('too_many_login_attempts', 'Too many login attempts. Please try again later.', 429);
     }
 
     // Find user
@@ -35,6 +93,8 @@ users.post('/login', async (c) => {
     if (!isValidPassword) {
       return createWPError('invalid_password', 'Invalid username or password.', 401);
     }
+
+    await clearLoginRateLimit(c, username);
 
     // Update last login
     await c.env.DB.prepare('UPDATE users SET last_login = ? WHERE id = ?')
@@ -76,6 +136,10 @@ users.post('/register', async (c) => {
       );
     }
 
+    if (isUnsafeJwtSecret(c.env.JWT_SECRET)) {
+      return createWPError('server_not_configured', 'JWT_SECRET is not configured securely.', 500);
+    }
+
     // Check if username or email already exists
     const existingUser = await c.env.DB.prepare(
       'SELECT id FROM users WHERE username = ? OR email = ?'
@@ -96,6 +160,10 @@ users.post('/register', async (c) => {
       .first<{ count: number }>();
 
     const isFirstUser = (userCount?.count || 0) === 0;
+    if (!isFirstUser) {
+      return createWPError('registration_closed', 'Public registration is closed.', 403);
+    }
+
     const userRole = isFirstUser ? 'administrator' : 'subscriber';
 
     // Hash password
@@ -174,12 +242,12 @@ users.get('/', optionalAuthMiddleware, async (c) => {
       // Not authenticated, continue as public user
     }
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '10');
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 10);
     const search = c.req.query('search');
     const role = c.req.query('role');
     const orderby = c.req.query('orderby') || 'registered_at';
-    const order = c.req.query('order') || 'desc';
+    const order = parseSqlOrder(c.req.query('order'), 'DESC');
 
     const offset = (page - 1) * perPage;
 
@@ -204,7 +272,7 @@ users.get('/', optionalAuthMiddleware, async (c) => {
       email: 'email'
     };
     const orderColumn = orderMap[orderby] || 'registered_at';
-    query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
+    query += ` ORDER BY ${orderColumn} ${order} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
     const result = await c.env.DB.prepare(query).bind(...params).all<User>();
@@ -249,7 +317,7 @@ users.get('/:id', optionalAuthMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     // Check if user is authenticated admin or viewing their own profile
     let isAdmin = false;
@@ -350,7 +418,7 @@ users.put('/:id', authMiddleware, async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
     const currentUser = c.get('user') as JWTPayload;
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     // Check if user can edit (self or admin)
     if (currentUser.userId !== id && currentUser.role !== 'administrator') {
@@ -462,7 +530,7 @@ users.delete('/:id', authMiddleware, requireRole('administrator'), async (c) => 
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const reassign = c.req.query('reassign');
     const force = c.req.query('force') === 'true';
 

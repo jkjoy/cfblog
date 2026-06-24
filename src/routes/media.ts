@@ -1,9 +1,18 @@
 import { Hono } from 'hono';
 import type { AppEnv, Media } from '../types';
-import { formatMediaResponse, buildPaginationHeaders, createWPError, getSiteSettings, normalizeBaseUrl } from '../utils';
+import {
+  formatMediaResponse,
+  buildPaginationHeaders,
+  createWPError,
+  getSiteSettings,
+  normalizeBaseUrl,
+  parsePageParam,
+  parsePerPageParam
+} from '../utils';
 import { authMiddleware, requireRole } from '../auth';
 
 const media = new Hono<AppEnv>();
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 interface UploadedFileLike {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -18,8 +27,8 @@ media.get('/', authMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '10');
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 10);
     const author = c.req.query('author');
     const parent = c.req.query('parent');
     const mediaType = c.req.query('media_type');
@@ -91,7 +100,7 @@ media.get('/:id', async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     const mediaItem = await c.env.DB.prepare('SELECT * FROM media WHERE id = ?')
       .bind(id)
@@ -108,7 +117,7 @@ media.get('/:id', async (c) => {
 });
 
 // POST /wp/v2/media - Upload media
-media.post('/', authMiddleware, async (c) => {
+media.post('/', authMiddleware, requireRole('administrator', 'editor', 'author'), async (c) => {
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
@@ -134,7 +143,6 @@ media.post('/', authMiddleware, async (c) => {
       'image/png',
       'image/gif',
       'image/webp',
-      'image/svg+xml',
       'video/mp4',
       'video/webm',
       'application/pdf'
@@ -144,6 +152,14 @@ media.post('/', authMiddleware, async (c) => {
       return createWPError(
         'rest_invalid_file_type',
         'Sorry, this file type is not permitted for security reasons.',
+        400
+      );
+    }
+
+    if (!Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_UPLOAD_BYTES) {
+      return createWPError(
+        'rest_invalid_file_size',
+        'File size must be greater than 0 and no larger than 10 MB.',
         400
       );
     }
@@ -227,7 +243,7 @@ media.put('/:id', authMiddleware, async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
     const user = c.get('user');
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     // Check if media exists
     const existingMedia = await c.env.DB.prepare('SELECT * FROM media WHERE id = ?')
@@ -310,7 +326,7 @@ media.delete('/:id', authMiddleware, async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
     const user = c.get('user');
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const force = c.req.query('force') === 'true';
 
     // Check if media exists

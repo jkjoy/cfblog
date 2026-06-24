@@ -1,6 +1,16 @@
 import { Hono } from 'hono';
 import type { AppEnv, Category, JWTPayload } from '../types';
-import { formatCategoryResponse, generateSlug, generateSmartTagSlug, buildPaginationHeaders, createWPError, getSiteSettings } from '../utils';
+import {
+  formatCategoryResponse,
+  generateSlug,
+  generateSmartTagSlug,
+  buildPaginationHeaders,
+  createWPError,
+  getSiteSettings,
+  parsePageParam,
+  parsePerPageParam,
+  parseSqlOrder
+} from '../utils';
 import { authMiddleware, optionalAuthMiddleware, requireRole } from '../auth';
 
 const categories = new Hono<AppEnv>();
@@ -11,15 +21,15 @@ categories.get('/', async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '10');
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 10);
     const search = c.req.query('search');
     const post = c.req.query('post');
     const slug = c.req.query('slug');
     const include = c.req.query('include');
     const exclude = c.req.query('exclude');
     const orderby = c.req.query('orderby') || 'name';
-    const order = c.req.query('order') || 'asc';
+    const order = parseSqlOrder(c.req.query('order'), 'ASC');
 
     const offset = (page - 1) * perPage;
 
@@ -66,7 +76,7 @@ categories.get('/', async (c) => {
       id: 'id'
     };
     const orderColumn = orderMap[orderby] || 'name';
-    query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
+    query += ` ORDER BY ${orderColumn} ${order} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
     const result = await c.env.DB.prepare(query).bind(...params).all<Category>();
@@ -124,7 +134,7 @@ categories.get('/:id', async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     const category = await c.env.DB.prepare('SELECT * FROM categories WHERE id = ?')
       .bind(id)
@@ -198,7 +208,7 @@ categories.put('/:id', authMiddleware, requireRole('administrator', 'editor'), a
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     // Check if category exists
     const existingCategory = await c.env.DB.prepare('SELECT * FROM categories WHERE id = ?')
@@ -287,7 +297,7 @@ categories.delete('/:id', authMiddleware, requireRole('administrator', 'editor')
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const force = c.req.query('force') === 'true';
 
     // Check if category exists

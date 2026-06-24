@@ -22,10 +22,6 @@ bucket_name = "cfblog-media"
 [ai]
 binding = "AI"
 
-# Environment variables
-[vars]
-JWT_SECRET = "your-jwt-secret-here-change-in-production"
-
 [assets]
 binding = "ASSETS"
 directory = "./public"

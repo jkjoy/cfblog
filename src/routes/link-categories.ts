@@ -46,7 +46,7 @@ linkCategories.get('/', async (c) => {
 
 // Get single link category
 linkCategories.get('/:id', async (c) => {
-  const id = parseInt(c.req.param('id'));
+  const id = parseInt(c.req.param('id') || '');
 
   try {
     const settings = await getSiteSettings(c.env);
@@ -113,7 +113,7 @@ linkCategories.put('/:id', authMiddleware, async (c) => {
     return c.json({ code: 'rest_forbidden', message: 'Sorry, you are not allowed to update link categories.' }, 403);
   }
 
-  const id = parseInt(c.req.param('id'));
+  const id = parseInt(c.req.param('id') || '');
 
   try {
     const settings = await getSiteSettings(c.env);
@@ -185,7 +185,7 @@ linkCategories.delete('/:id', authMiddleware, async (c) => {
     return c.json({ code: 'rest_forbidden', message: 'Sorry, you are not allowed to delete link categories.' }, 403);
   }
 
-  const id = parseInt(c.req.param('id'));
+  const id = parseInt(c.req.param('id') || '');
 
   if (id === 1) {
     return c.json({ code: 'rest_cannot_delete', message: 'Cannot delete the default category.' }, 403);

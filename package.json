@@ -23,15 +23,17 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241127.0",
+    "@cloudflare/workers-types": "^4.20260624.1",
+    "@types/sanitize-html": "^2.16.1",
     "less": "^4.6.4",
-    "typescript": "^5.7.2",
-    "wrangler": "^4.80.0"
+    "typescript": "^6.0.3",
+    "wrangler": "^4.104.0"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "hono": "^4.6.14",
+    "hono": "^4.12.27",
     "jose": "^5.9.6",
-    "marked": "^17.0.6"
+    "marked": "^17.0.6",
+    "sanitize-html": "^2.17.5"
   }
 }

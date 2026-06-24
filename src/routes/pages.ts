@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import type { AppEnv, Post } from '../types';
-import { authMiddleware } from '../auth';
-import { generateSlug, getSiteSettings } from '../utils';
+import type { AppEnv, JWTPayload, Post } from '../types';
+import { authMiddleware, optionalAuthMiddleware, requireRole } from '../auth';
+import { canViewNonPublicContent, generateSlug, getSiteSettings, parsePageParam, parsePerPageParam } from '../utils';
 
 const pages = new Hono<AppEnv>();
 
@@ -39,16 +39,22 @@ function formatPageResponse(page: PageWithAuthorRow, baseUrl: string) {
 }
 
 // Get all pages
-pages.get('/', async (c) => {
+pages.get('/', optionalAuthMiddleware, async (c) => {
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
+    const user = c.get('user') as JWTPayload | undefined;
 
     const url = new URL(c.req.url);
-    const perPage = parseInt(url.searchParams.get('per_page') || '20');
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const perPage = parsePerPageParam(url.searchParams.get('per_page'), 20);
+    const page = parsePageParam(url.searchParams.get('page'));
     const status = url.searchParams.get('status') || 'publish';
     const offset = (page - 1) * perPage;
+    const includeAllStatuses = status === 'all';
+
+    if ((includeAllStatuses || status !== 'publish') && !user) {
+      return c.json({ code: 'rest_not_logged_in', message: 'You are not currently logged in.' }, 401);
+    }
 
     let query = `
       SELECT p.*, u.username as author_name
@@ -58,9 +64,14 @@ pages.get('/', async (c) => {
     `;
     const params: any[] = [];
 
-    if (status !== 'all') {
+    if (!includeAllStatuses) {
       query += ` AND p.status = ?`;
       params.push(status);
+    }
+
+    if (user && !['administrator', 'editor'].includes(user.role)) {
+      query += ` AND p.author_id = ?`;
+      params.push(user.userId);
     }
 
     query += ` ORDER BY p.created_at DESC LIMIT ? OFFSET ?`;
@@ -71,9 +82,13 @@ pages.get('/', async (c) => {
     // Get total count
     let countQuery = `SELECT COUNT(*) as total FROM posts WHERE post_type = 'page'`;
     const countParams: any[] = [];
-    if (status !== 'all') {
+    if (!includeAllStatuses) {
       countQuery += ` AND status = ?`;
       countParams.push(status);
+    }
+    if (user && !['administrator', 'editor'].includes(user.role)) {
+      countQuery += ` AND author_id = ?`;
+      countParams.push(user.userId);
     }
     const total = (await c.env.DB.prepare(countQuery).bind(...countParams).first<{ total: number }>())?.total || 0;
 
@@ -90,12 +105,13 @@ pages.get('/', async (c) => {
 });
 
 // Get single page
-pages.get('/:id', async (c) => {
-  const id = parseInt(c.req.param('id'));
+pages.get('/:id', optionalAuthMiddleware, async (c) => {
+  const id = parseInt(c.req.param('id') || '');
 
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
+    const user = c.get('user') as JWTPayload | undefined;
 
     const page = await c.env.DB.prepare(`
       SELECT p.*, u.username as author_name
@@ -108,6 +124,10 @@ pages.get('/:id', async (c) => {
       return c.json({ code: 'rest_page_invalid', message: 'Invalid page ID.' }, 404);
     }
 
+    if (page.status !== 'publish' && !canViewNonPublicContent(user, page.author_id)) {
+      return c.json({ code: 'rest_page_invalid', message: 'Invalid page ID.' }, 404);
+    }
+
     return c.json(formatPageResponse(page, baseUrl));
   } catch (error: any) {
     console.error('[DEBUG] Failed to get page:', error);
@@ -115,8 +135,8 @@ pages.get('/:id', async (c) => {
   }
 });
 
-// Create page (requires authentication)
-pages.post('/', authMiddleware, async (c) => {
+// Create page (requires editor permissions)
+pages.post('/', authMiddleware, requireRole('administrator', 'editor'), async (c) => {
   const user = c.get('user');
 
   try {
@@ -187,8 +207,8 @@ pages.post('/', authMiddleware, async (c) => {
 });
 
 // Update page
-pages.put('/:id', authMiddleware, async (c) => {
-  const id = parseInt(c.req.param('id'));
+pages.put('/:id', authMiddleware, requireRole('administrator', 'editor'), async (c) => {
+  const id = parseInt(c.req.param('id') || '');
 
   try {
     const settings = await getSiteSettings(c.env);
@@ -284,8 +304,8 @@ pages.put('/:id', authMiddleware, async (c) => {
 });
 
 // Delete page
-pages.delete('/:id', authMiddleware, async (c) => {
-  const id = parseInt(c.req.param('id'));
+pages.delete('/:id', authMiddleware, requireRole('administrator', 'editor'), async (c) => {
+  const id = parseInt(c.req.param('id') || '');
   const force = c.req.query('force') === 'true';
 
   try {

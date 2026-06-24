@@ -25,7 +25,6 @@ app.use('*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
   exposeHeaders: ['X-WP-Total', 'X-WP-TotalPages', 'Link'],
   maxAge: 600,
-  credentials: true,
 }));
 
 // Root endpoint - Simple landing page

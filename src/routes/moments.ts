@@ -1,7 +1,17 @@
 import { Hono } from 'hono';
 import type { AppEnv, Env, JWTPayload } from '../types';
-import { buildPaginationHeaders, createWPError, getSiteSettings, md5 } from '../utils';
-import { authMiddleware, optionalAuthMiddleware } from '../auth';
+import {
+  buildPaginationHeaders,
+  canViewNonPublicContent,
+  createWPError,
+  getSiteSettings,
+  isEditorRole,
+  md5,
+  parsePageParam,
+  parsePerPageParam,
+  parseSqlOrder
+} from '../utils';
+import { authMiddleware, optionalAuthMiddleware, requireRole } from '../auth';
 import {
   applyCountDelta,
   getApprovedStatusDelta,
@@ -139,20 +149,31 @@ moments.get('/', optionalAuthMiddleware, async (c) => {
     const baseUrl = getBaseUrl(settings?.site_url);
     const adminAvatarUrl = await getAdminAvatarUrl(settings?.admin_email);
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '10');
+    const user = (c as any).get('user') as JWTPayload | undefined;
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 10);
     const status = c.req.query('status') || 'publish';
     const author = c.req.query('author');
-    const order = c.req.query('order') || 'desc';
+    const order = parseSqlOrder(c.req.query('order'), 'DESC');
+    const includeAllStatuses = status === 'all';
+
+    if ((includeAllStatuses || status !== 'publish') && !user) {
+      return createWPError('rest_not_logged_in', 'You are not currently logged in.', 401);
+    }
 
     const offset = (page - 1) * perPage;
 
     let query = 'SELECT * FROM moments WHERE 1=1';
     const params: any[] = [];
 
-    if (status && status !== 'all') {
+    if (status && !includeAllStatuses) {
       query += ' AND status = ?';
       params.push(status);
+    }
+
+    if (user && (includeAllStatuses || status !== 'publish') && !isEditorRole(user)) {
+      query += ' AND author_id = ?';
+      params.push(user.userId);
     }
 
     if (author) {
@@ -160,16 +181,20 @@ moments.get('/', optionalAuthMiddleware, async (c) => {
       params.push(parseInt(author));
     }
 
-    query += ` ORDER BY created_at ${order.toUpperCase()} LIMIT ? OFFSET ?`;
+    query += ` ORDER BY created_at ${order} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
     const result = await c.env.DB.prepare(query).bind(...params).all();
 
     let countQuery = 'SELECT COUNT(*) as total FROM moments WHERE 1=1';
     const countParams: any[] = [];
-    if (status && status !== 'all') {
+    if (status && !includeAllStatuses) {
       countQuery += ' AND status = ?';
       countParams.push(status);
+    }
+    if (user && (includeAllStatuses || status !== 'publish') && !isEditorRole(user)) {
+      countQuery += ' AND author_id = ?';
+      countParams.push(user.userId);
     }
     if (author) {
       countQuery += ' AND author_id = ?';
@@ -214,8 +239,8 @@ moments.get('/comments/all', authMiddleware, async (c) => {
 
     const settings = await getSiteSettings(c.env);
     const baseUrl = getBaseUrl(settings?.site_url);
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '50');
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 50);
     const status = c.req.query('status') || 'all';
     const offset = (page - 1) * perPage;
 
@@ -274,7 +299,7 @@ moments.get('/:id/comments', optionalAuthMiddleware, async (c) => {
 
     const settings = await getSiteSettings(c.env);
     const baseUrl = getBaseUrl(settings?.site_url);
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     let isAdmin = false;
 
     try {
@@ -289,8 +314,13 @@ moments.get('/:id/comments', optionalAuthMiddleware, async (c) => {
       return createWPError('moment_not_found', 'Moment not found', 404);
     }
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '50');
+    const user = (c as any).get('user') as JWTPayload | undefined;
+    if ((moment as any).status !== 'publish' && !canViewNonPublicContent(user, Number((moment as any).author_id))) {
+      return createWPError('moment_not_found', 'Moment not found', 404);
+    }
+
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 50);
     const status = c.req.query('status') || (isAdmin ? 'all' : 'approved');
     const offset = (page - 1) * perPage;
 
@@ -357,7 +387,7 @@ moments.post('/:id/comments', optionalAuthMiddleware, async (c) => {
 
     const settings = await getSiteSettings(c.env);
     const baseUrl = getBaseUrl(settings?.site_url);
-    const momentId = parseInt(c.req.param('id'));
+    const momentId = parseInt(c.req.param('id') || '');
     const moment = await getMomentOr404(c.env, momentId);
 
     if (!moment) {
@@ -499,8 +529,8 @@ moments.put('/:id/comments/:commentId', authMiddleware, async (c) => {
 
     const settings = await getSiteSettings(c.env);
     const baseUrl = getBaseUrl(settings?.site_url);
-    const momentId = parseInt(c.req.param('id'));
-    const commentId = parseInt(c.req.param('commentId'));
+    const momentId = parseInt(c.req.param('id') || '');
+    const commentId = parseInt(c.req.param('commentId') || '');
     const body = await c.req.json();
     const { status, content, author_name, author_email, author_url, author_ip } = body;
 
@@ -589,8 +619,8 @@ moments.delete('/:id/comments/:commentId', authMiddleware, async (c) => {
 
     const settings = await getSiteSettings(c.env);
     const baseUrl = getBaseUrl(settings?.site_url);
-    const momentId = parseInt(c.req.param('id'));
-    const commentId = parseInt(c.req.param('commentId'));
+    const momentId = parseInt(c.req.param('id') || '');
+    const commentId = parseInt(c.req.param('commentId') || '');
     const force = c.req.query('force') === 'true';
 
     const existingComment = await c.env.DB.prepare(`
@@ -634,7 +664,7 @@ moments.delete('/:id/comments/:commentId', authMiddleware, async (c) => {
 // POST /wp/v2/moments/:id/like - Like moment
 moments.post('/:id/like', async (c) => {
   try {
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const moment = await getMomentOr404(c.env, id);
     if (!moment) {
       return createWPError('moment_not_found', 'Moment not found', 404);
@@ -664,7 +694,7 @@ moments.post('/:id/like', async (c) => {
 // DELETE /wp/v2/moments/:id/like - Unlike moment
 moments.delete('/:id/like', async (c) => {
   try {
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const moment = await getMomentOr404(c.env, id);
     if (!moment) {
       return createWPError('moment_not_found', 'Moment not found', 404);
@@ -697,7 +727,7 @@ moments.get('/:id', optionalAuthMiddleware, async (c) => {
     const settings = await getSiteSettings(c.env);
     const baseUrl = getBaseUrl(settings?.site_url);
     const adminAvatarUrl = await getAdminAvatarUrl(settings?.admin_email);
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     const moment = await getMomentOr404(c.env, id);
     if (!moment) {
@@ -720,7 +750,7 @@ moments.get('/:id', optionalAuthMiddleware, async (c) => {
 });
 
 // POST /wp/v2/moments - Create moment
-moments.post('/', authMiddleware, async (c) => {
+moments.post('/', authMiddleware, requireRole('administrator', 'editor', 'author'), async (c) => {
   try {
     const user = (c as any).get('user') as JWTPayload;
     const body = await c.req.json();
@@ -765,7 +795,7 @@ moments.post('/', authMiddleware, async (c) => {
 moments.put('/:id', authMiddleware, async (c) => {
   try {
     const user = (c as any).get('user') as JWTPayload;
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const body = await c.req.json();
 
     const existingMoment = await c.env.DB.prepare('SELECT * FROM moments WHERE id = ?')
@@ -837,7 +867,7 @@ moments.put('/:id', authMiddleware, async (c) => {
 moments.delete('/:id', authMiddleware, async (c) => {
   try {
     const user = (c as any).get('user') as JWTPayload;
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const force = c.req.query('force') === 'true';
 
     const existingMoment = await c.env.DB.prepare('SELECT * FROM moments WHERE id = ?')

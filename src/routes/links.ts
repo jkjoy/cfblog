@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { AppEnv } from '../types';
-import { authMiddleware } from '../auth';
-import { getSiteSettings } from '../utils';
+import { authMiddleware, requireRole } from '../auth';
+import { getSiteSettings, parsePageParam, parsePerPageParam } from '../utils';
 
 const links = new Hono<AppEnv>();
 
@@ -57,8 +57,8 @@ links.get('/', async (c) => {
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
     const url = new URL(c.req.url);
-    const perPage = parseInt(url.searchParams.get('per_page') || '50');
-    const page = parseInt(url.searchParams.get('page') || '1');
+    const perPage = parsePerPageParam(url.searchParams.get('per_page'), 50);
+    const page = parsePageParam(url.searchParams.get('page'));
     const categoryId = url.searchParams.get('category');
     const visible = url.searchParams.get('visible') || 'yes';
     const offset = (page - 1) * perPage;
@@ -104,7 +104,7 @@ links.get('/', async (c) => {
 
 // Get single link
 links.get('/:id', async (c) => {
-  const id = parseInt(c.req.param('id'));
+  const id = parseInt(c.req.param('id') || '');
 
   try {
     const settings = await getSiteSettings(c.env);
@@ -128,8 +128,8 @@ links.get('/:id', async (c) => {
   }
 });
 
-// Create link (requires authentication)
-links.post('/', authMiddleware, async (c) => {
+// Create link (requires editor permissions)
+links.post('/', authMiddleware, requireRole('administrator', 'editor'), async (c) => {
   try {
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
@@ -185,8 +185,8 @@ links.post('/', authMiddleware, async (c) => {
 });
 
 // Update link
-links.put('/:id', authMiddleware, async (c) => {
-  const id = parseInt(c.req.param('id'));
+links.put('/:id', authMiddleware, requireRole('administrator', 'editor'), async (c) => {
+  const id = parseInt(c.req.param('id') || '');
 
   try {
     const settings = await getSiteSettings(c.env);
@@ -285,8 +285,8 @@ links.put('/:id', authMiddleware, async (c) => {
 });
 
 // Delete link
-links.delete('/:id', authMiddleware, async (c) => {
-  const id = parseInt(c.req.param('id'));
+links.delete('/:id', authMiddleware, requireRole('administrator', 'editor'), async (c) => {
+  const id = parseInt(c.req.param('id') || '');
 
   try {
     const link = await c.env.DB.prepare(`

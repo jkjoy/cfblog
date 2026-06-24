@@ -6,6 +6,9 @@ import {
   formatCommentResponse,
   buildPaginationHeaders,
   createWPError,
+  parsePageParam,
+  parsePerPageParam,
+  parseSqlOrder,
   sendWebhook
 } from '../utils';
 import { sendCommentNotifications } from '../mail';
@@ -47,15 +50,15 @@ comments.get('/', optionalAuthMiddleware, async (c) => {
     const user = c.get('user') as JWTPayload | undefined;
     const isAdmin = !!user && ['administrator', 'editor'].includes(user.role);
 
-    const page = parseInt(c.req.query('page') || '1');
-    const perPage = parseInt(c.req.query('per_page') || '10');
+    const page = parsePageParam(c.req.query('page'));
+    const perPage = parsePerPageParam(c.req.query('per_page'), 10);
     const postId = c.req.query('post');
     const parent = c.req.query('parent');
     const author = c.req.query('author');
     const authorEmail = c.req.query('author_email');
     const status = c.req.query('status') || (isAdmin ? 'all' : 'approved');
     const orderby = c.req.query('orderby') || 'date_gmt';
-    const order = c.req.query('order') || 'desc';
+    const order = parseSqlOrder(c.req.query('order'), 'DESC');
     const offset = (page - 1) * perPage;
 
     // Build query
@@ -104,7 +107,7 @@ comments.get('/', optionalAuthMiddleware, async (c) => {
       post: 'c.post_id'
     };
     const orderColumn = orderMap[orderby] || 'c.created_at';
-    query += ` ORDER BY ${orderColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
+    query += ` ORDER BY ${orderColumn} ${order} LIMIT ? OFFSET ?`;
     params.push(perPage, offset);
 
     const result = await c.env.DB.prepare(query).bind(...params).all<CommentWithPost>();
@@ -179,7 +182,7 @@ comments.get('/:id', optionalAuthMiddleware, async (c) => {
     const user = c.get('user') as JWTPayload | undefined;
     const isAdmin = !!user && ['administrator', 'editor'].includes(user.role);
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
 
     const comment = await c.env.DB.prepare(`
       SELECT c.*, p.slug as post_slug, p.title as post_title
@@ -429,7 +432,7 @@ comments.put('/:id', authMiddleware, async (c) => {
     const user = c.get('user');
     const isAdmin = ['administrator', 'editor'].includes(user.role);
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const body = await c.req.json();
     const { status, content, author_name, author_email, author_url, author_ip } = body;
 
@@ -558,7 +561,7 @@ comments.delete('/:id', authMiddleware, async (c) => {
     const user = c.get('user');
     const isAdmin = ['administrator', 'editor'].includes(user.role);
 
-    const id = parseInt(c.req.param('id'));
+    const id = parseInt(c.req.param('id') || '');
     const force = c.req.query('force') === 'true';
 
     // Check if comment exists
