@@ -72,15 +72,11 @@ export function extractToken(c: Context): string | null {
 export async function authMiddleware(c: AppContext, next: Next) {
   const token = extractToken(c);
 
-  console.log('[DEBUG] Auth middleware - Token:', token ? token.substring(0, 20) + '...' : 'null');
-
   if (!token) {
     return createWPError('rest_not_logged_in', 'You are not currently logged in.', 401);
   }
 
   const payload = await verifyToken(token, c.env.JWT_SECRET);
-
-  console.log('[DEBUG] Auth middleware - Payload:', payload);
 
   if (!payload) {
     return createWPError('rest_invalid_token', 'Invalid or expired token.', 401);
@@ -111,16 +107,11 @@ export function requireRole(...allowedRoles: string[]) {
   return async (c: Context<AppEnv>, next: Next) => {
     const user = c.get('user') as JWTPayload | undefined;
 
-    console.log('[DEBUG] requireRole - User:', user);
-    console.log('[DEBUG] requireRole - Allowed roles:', allowedRoles);
-    console.log('[DEBUG] requireRole - User role:', user?.role);
-
     if (!user) {
       return createWPError('rest_not_logged_in', 'You are not currently logged in.', 401);
     }
 
     if (!allowedRoles.includes(user.role)) {
-      console.log('[DEBUG] requireRole - FORBIDDEN: User role', user.role, 'not in', allowedRoles);
       return createWPError(
         'rest_forbidden',
         'Sorry, you are not allowed to do that.',
@@ -128,7 +119,6 @@ export function requireRole(...allowedRoles: string[]) {
       );
     }
 
-    console.log('[DEBUG] requireRole - ALLOWED');
     await next();
   };
 }

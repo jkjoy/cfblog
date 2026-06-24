@@ -654,20 +654,12 @@ export async function sendWebhook(env: Env, event: WebhookEvent, data: any): Pro
     const webhookSecret = settings.webhook_secret;
     const webhookEvents = settings.webhook_events || '';
 
-    // Log webhook configuration for debugging
-    console.log(`[Webhook] Event: ${event}`);
-    console.log(`[Webhook] URL configured: ${webhookUrl ? 'Yes' : 'No'}`);
-
-    // Skip if no webhook URL configured
     if (!webhookUrl || webhookUrl.trim() === '') {
-      console.log('[Webhook] Skipped: No webhook URL configured');
       return;
     }
 
-    // Check if this event should trigger webhook
     const enabledEvents = webhookEvents.split(',').map((e: string) => e.trim());
     if (enabledEvents.length > 0 && !enabledEvents.includes(event)) {
-      console.log(`[Webhook] Skipped: Event '${event}' not in enabled events`);
       return;
     }
 
@@ -708,31 +700,14 @@ export async function sendWebhook(env: Env, event: WebhookEvent, data: any): Pro
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
       headers['X-Webhook-Signature'] = `sha256=${hashHex}`;
-      console.log('[Webhook] Signature added');
     }
 
-    console.log(`[Webhook] Sending to: ${webhookUrl}`);
-
-    // Send webhook - await it to ensure it's sent
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        console.log(`[Webhook] Successfully sent (${response.status})`);
-      } else {
-        console.error(`[Webhook] Failed with status ${response.status}: ${await response.text()}`);
-      }
-    } catch (fetchError: any) {
-      console.error('[Webhook] Delivery failed:', fetchError.message);
-      // Silently fail - don't block the main operation
-    }
-
-  } catch (error: any) {
-    console.error('[Webhook] Error:', error.message);
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+  } catch {
     // Silently fail - don't block the main operation
   }
 }

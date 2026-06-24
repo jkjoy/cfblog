@@ -146,10 +146,6 @@ categories.post('/', authMiddleware, requireRole('administrator', 'editor'), asy
     const settings = await getSiteSettings(c.env);
     const baseUrl = settings.site_url || 'http://localhost:8787';
 
-    // Debug logging
-    const user = c.get('user') as JWTPayload | undefined;
-    console.log('[DEBUG] Create category - User:', user);
-
     const body = await c.req.json();
     const { name, description, slug, parent } = body;
 
