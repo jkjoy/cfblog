@@ -550,15 +550,21 @@ app.get('/media/*', async (c) => {
   }
 });
 
+// Short admin alias.
+app.get('/admin', (c) => c.redirect('/wp-admin', 302));
+
 // Admin dashboard route (will serve HTML)
-app.get('/wp-admin', (c) => {
+app.get('/wp-admin', async (c) => {
+  const siteSettings = await getSiteSettings(c.env);
+  const siteTitle = siteSettings.site_title || 'CFBlog';
+
   return c.html(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${c.env.SITE_NAME || 'CFBlog'} - Dashboard</title>
+  <title>${siteTitle} - Dashboard</title>
   <!-- EasyMDE Markdown Editor -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.css">
   <script src="https://cdn.jsdelivr.net/npm/easymde@2.18.0/dist/easymde.min.js"></script>
@@ -695,45 +701,209 @@ app.get('/wp-admin', (c) => {
     .button-secondary:hover {
       background: #fff;
     }
+    .auth-shell {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      background:
+        radial-gradient(circle at top left, rgba(34, 113, 177, 0.12), transparent 34rem),
+        linear-gradient(135deg, #eef3f8 0%, #f8fafc 42%, #eef7f4 100%);
+    }
+    .auth-card {
+      width: min(960px, 100%);
+      min-height: 620px;
+      display: grid;
+      grid-template-columns: minmax(260px, 0.92fr) minmax(340px, 1.08fr);
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(163, 177, 191, 0.55);
+      border-radius: 8px;
+      box-shadow: 0 24px 70px rgba(29, 35, 39, 0.14);
+    }
+    .auth-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 42px;
+      color: #f8fafc;
+      background:
+        linear-gradient(160deg, rgba(16, 24, 39, 0.92), rgba(23, 58, 91, 0.9)),
+        url('/assets/images/bg.png') center/cover;
+    }
+    .auth-panel::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 34px 34px;
+      opacity: 0.22;
+      pointer-events: none;
+    }
+    .auth-brand,
+    .auth-panel-footer {
+      position: relative;
+      z-index: 1;
+    }
+    .auth-panel h1 {
+      max-width: 360px;
+      margin: 0 0 14px;
+      font-size: 32px;
+      line-height: 1.18;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .auth-panel p {
+      max-width: 360px;
+      color: rgba(248, 250, 252, 0.78);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .auth-status-list {
+      display: grid;
+      gap: 12px;
+      margin: 34px 0 0;
+      list-style: none;
+    }
+    .auth-status-list li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(248, 250, 252, 0.84);
+      font-size: 13px;
+    }
+    .auth-status-list li::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #5eead4;
+      box-shadow: 0 0 0 4px rgba(94, 234, 212, 0.12);
+      flex: 0 0 auto;
+    }
+    .auth-panel-footer {
+      padding-top: 32px;
+      color: rgba(248, 250, 252, 0.64);
+      font-size: 12px;
+      line-height: 1.7;
+    }
     .login-form {
-      max-width: 400px;
-      margin: 100px auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 48px;
       background: #fff;
-      padding: 40px;
-      border-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.13);
     }
     .login-form h1 {
-      text-align: center;
-      margin-bottom: 30px;
-      font-size: 28px;
-      font-weight: 600;
+      margin-bottom: 10px;
+      color: #111827;
+      font-size: 30px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .auth-subtitle {
+      margin-bottom: 28px;
+      color: #5f6b7a;
+      font-size: 14px;
+      line-height: 1.7;
     }
     .form-group {
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     .form-group label {
       display: block;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
+      color: #344054;
+      font-size: 13px;
       font-weight: 500;
     }
     .form-group input {
       width: 100%;
-      padding: 10px;
-      border: 1px solid #8c8f94;
-      border-radius: 3px;
+      min-height: 46px;
+      padding: 11px 13px;
+      border: 1px solid #c7d0d9;
+      border-radius: 6px;
+      background: #fbfcfe;
+      color: #111827;
       font-size: 14px;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
     }
     .form-group input:focus {
       outline: none;
       border-color: #2271b1;
-      box-shadow: 0 0 0 1px #2271b1;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.16);
+    }
+    .auth-submit {
+      width: 100%;
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 2px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .auth-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(34, 113, 177, 0.2);
+    }
+    .auth-submit:disabled {
+      cursor: wait;
+      opacity: 0.75;
+      transform: none;
+      box-shadow: none;
+    }
+    .auth-divider {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 14px;
+      margin: 28px 0;
+      color: #7a8593;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      height: 1px;
+      background: #e3e8ef;
+    }
+    .auth-register {
+      padding-top: 2px;
+    }
+    .auth-note {
+      margin-top: 22px;
+      padding: 14px 16px;
+      border: 1px solid #bee3f8;
+      border-left: 4px solid #2271b1;
+      border-radius: 6px;
+      background: #eff8ff;
+      color: #344054;
+      font-size: 13px;
+      line-height: 1.65;
     }
     .error-message {
-      background: #f0f0f1;
+      border: 1px solid #f1b8ba;
       border-left: 4px solid #d63638;
-      padding: 12px;
-      margin-bottom: 20px;
+      border-radius: 6px;
+      background: #fff5f5;
+      color: #8a2426;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      font-size: 13px;
+      line-height: 1.55;
     }
     .隐藏 {
       display: none !important;
@@ -1165,12 +1335,29 @@ app.get('/wp-admin', (c) => {
       .checkbox-group {
         max-height: 120px;
       }
+      .auth-shell {
+        padding: 20px;
+        align-items: flex-start;
+      }
+      .auth-card {
+        min-height: auto;
+        grid-template-columns: 1fr;
+      }
+      .auth-panel {
+        min-height: auto;
+        padding: 28px;
+      }
+      .auth-panel h1 {
+        font-size: 26px;
+      }
+      .auth-panel-footer {
+        padding-top: 24px;
+      }
       .login-form {
-        margin: 20px;
-        padding: 25px;
+        padding: 28px;
       }
       .login-form h1 {
-        font-size: 24px;
+        font-size: 26px;
       }
       #lang-switcher {
         padding: 4px;
@@ -1194,6 +1381,20 @@ app.get('/wp-admin', (c) => {
       }
       .button-group .button {
         width: 100%;
+      }
+      .auth-shell {
+        padding: 12px;
+      }
+      .auth-panel,
+      .login-form {
+        padding: 22px;
+      }
+      .auth-panel h1,
+      .login-form h1 {
+        font-size: 24px;
+      }
+      .auth-status-list {
+        margin-top: 22px;
       }
     }
 
@@ -1780,60 +1981,83 @@ app.get('/wp-admin', (c) => {
       }
 
       document.getElementById('app').innerHTML = \`
-        <div class="login-form">
-          <h1>${c.env.SITE_NAME || 'CFBlog'}</h1>
-          <div id="form-error" class="error-message 隐藏"></div>
-
-          <!-- Login Form -->
-          <form id="login-form">
-            <div class="form-group">
-              <label for="login-username">Username or Email</label>
-              <input type="text" id="login-username" name="username" required>
-            </div>
-            <div class="form-group">
-              <label for="login-password">Password</label>
-              <input type="password" id="login-password" name="password" required>
-            </div>
-            <button type="submit" class="button" style="width: 100%;">Log In</button>
-          </form>
-
-          \${!hasUsers ? \`
-            <div style="text-align: center; margin: 20px 0; color: #646970;">
-              — or —
-            </div>
-
-            <!-- Register Form -->
-            <form id="register-form">
-              <div class="form-group">
-                <label for="reg-username">Username</label>
-                <input type="text" id="reg-username" name="username" required>
+        <main class="auth-shell">
+          <section class="auth-card" aria-label="后台管理登录">
+            <aside class="auth-panel">
+              <div class="auth-brand">
+                <h1>${siteTitle} 后台管理</h1>
+                <p>登录后可统一管理文章、页面、媒体、评论和站点设置，后台由 Cloudflare Worker 轻量驱动。</p>
+                <ul class="auth-status-list">
+                  <li>REST API 已通过 /wp-json 接入</li>
+                  <li>受保护的管理员工作区</li>
+                  <li>首个账号将自动成为站点管理员</li>
+                </ul>
               </div>
-              <div class="form-group">
-                <label for="reg-email">Email</label>
-                <input type="email" id="reg-email" name="email" required>
+              <div class="auth-panel-footer">
+                为 Cloudflare Blog 打造的 WordPress 兼容管理界面。
               </div>
-              <div class="form-group">
-                <label for="reg-password">Password</label>
-                <input type="password" id="reg-password" name="password" required minlength="6">
-              </div>
-              <div class="form-group">
-                <label for="reg-display-name">Display Name (optional)</label>
-                <input type="text" id="reg-display-name" name="display_name">
-              </div>
-              <button type="submit" class="button button-secondary" style="width: 100%;">Create Account</button>
-            </form>
+            </aside>
 
-            <div style="margin-top: 20px; padding: 15px; background: #e7f5fe; border-left: 4px solid #2271b1; font-size: 13px;">
-              <strong>First time here?</strong><br>
-              The first account will automatically become the administrator.
+            <div class="login-form">
+              <h1>欢迎回来</h1>
+              <p class="auth-subtitle">使用管理员账号登录，继续进入后台控制台。</p>
+              <div id="form-error" class="error-message 隐藏" role="alert"></div>
+
+              <!-- Login Form -->
+              <form id="login-form">
+                <div class="form-group">
+                  <label for="login-username">用户名或邮箱</label>
+                  <input type="text" id="login-username" name="username" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                  <label for="login-password">密码</label>
+                  <input type="password" id="login-password" name="password" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="button auth-submit">登录</button>
+              </form>
+
+              \${!hasUsers ? \`
+                <div class="auth-divider"><span>初始化设置</span></div>
+
+                <!-- Register Form -->
+                <form id="register-form" class="auth-register">
+                  <div class="form-group">
+                    <label for="reg-username">用户名</label>
+                    <input type="text" id="reg-username" name="username" autocomplete="username" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="reg-email">邮箱</label>
+                    <input type="email" id="reg-email" name="email" autocomplete="email" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="reg-password">密码</label>
+                    <input type="password" id="reg-password" name="password" autocomplete="new-password" required minlength="6">
+                  </div>
+                  <div class="form-group">
+                    <label for="reg-display-name">显示名称（可选）</label>
+                    <input type="text" id="reg-display-name" name="display_name" autocomplete="name">
+                  </div>
+                  <button type="submit" class="button button-secondary auth-submit">创建账号</button>
+                </form>
+
+                <div class="auth-note">
+                  <strong>首次使用？</strong><br>
+                  创建第一个账号后，系统会自动将其设为管理员。
+                </div>
+              \` : ''}
             </div>
-          \` : ''}
-        </div>
+          </section>
+        </main>
       \`;
 
       // Login handler
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.textContent;
+        submitButton.disabled = true;
+        submitButton.textContent = '正在登录...';
+        document.getElementById('form-error').classList.add('隐藏');
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
 
@@ -1854,10 +2078,14 @@ app.get('/wp-admin', (c) => {
             const error = await response.json();
             document.getElementById('form-error').textContent = error.message;
             document.getElementById('form-error').classList.remove('隐藏');
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
           }
         } catch (error) {
-          document.getElementById('form-error').textContent = 'Login failed. Please try again.';
+          document.getElementById('form-error').textContent = '登录失败，请稍后重试。';
           document.getElementById('form-error').classList.remove('隐藏');
+          submitButton.disabled = false;
+          submitButton.textContent = originalButtonText;
         }
       });
 
@@ -1866,6 +2094,11 @@ app.get('/wp-admin', (c) => {
       if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
           e.preventDefault();
+          const submitButton = e.currentTarget.querySelector('button[type="submit"]');
+          const originalButtonText = submitButton.textContent;
+          submitButton.disabled = true;
+          submitButton.textContent = '正在创建账号...';
+          document.getElementById('form-error').classList.add('隐藏');
           const username = document.getElementById('reg-username').value;
           const email = document.getElementById('reg-email').value;
           const password = document.getElementById('reg-password').value;
@@ -1888,10 +2121,14 @@ app.get('/wp-admin', (c) => {
               const error = await response.json();
               document.getElementById('form-error').textContent = error.message;
               document.getElementById('form-error').classList.remove('隐藏');
+              submitButton.disabled = false;
+              submitButton.textContent = originalButtonText;
             }
           } catch (error) {
-            document.getElementById('form-error').textContent = 'Registration failed. Please try again.';
+            document.getElementById('form-error').textContent = '注册失败，请稍后重试。';
             document.getElementById('form-error').classList.remove('隐藏');
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
           }
         });
       }
@@ -1905,7 +2142,7 @@ app.get('/wp-admin', (c) => {
       const content = document.querySelector('.content-area');
       content.innerHTML = \`
         <div class="welcome-panel">
-          <h2>\${i18n.t('dashboard.welcome')} ${c.env.SITE_NAME || 'CFBlog'}!</h2>
+          <h2>\${i18n.t('dashboard.welcome')} ${siteTitle}!</h2>
           <p>\${i18n.t('dashboard.subtitle')}</p>
         </div>
         <div class="stats-grid">
@@ -4312,7 +4549,7 @@ app.get('/wp-admin', (c) => {
       app.innerHTML = \`
         <div class="sidebar-overlay" onclick="toggleMobileMenu()"></div>
         <div class="sidebar">
-          <div class="sidebar-header">${c.env.SITE_NAME || 'CFBlog'}</div>
+          <div class="sidebar-header">${siteTitle}</div>
           <ul class="sidebar-menu">
             <li><a href="#" data-route="/" class="active">\${i18n.t('nav.dashboard')}</a></li>
             <li><a href="#" data-route="/posts">\${i18n.t('nav.posts')}</a></li>
